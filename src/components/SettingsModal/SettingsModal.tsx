@@ -165,7 +165,7 @@ export default function SettingsModal({
                   running ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
                 } text-white rounded-full focus:outline-none`}
               >
-                {running ? 'Stop Stream' : 'Start Stream'}
+                {running ? 'Stop Capture' : 'Start Capture'}
               </button>
             </>
           ) : tab === 'advanced' ? (
