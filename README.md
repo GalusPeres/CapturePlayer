@@ -1,68 +1,87 @@
 # CapturePlayer
 
-**CapturePlayer** is a minimal desktop app that makes it effortless to view and share your capture card’s video and audio – perfect for gaming, consoles, or presentations.
+A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles.
 
----
+## The Problem
 
-## Why I built CapturePlayer
+When you want to play Nintendo Switch games on your PC monitor through a capture card and stream it on Discord, OBS is unnecessarily complicated:
+- You need to configure audio routing
+- Set up the preview projector to show only the video
+- Deal with UI elements you don't need
+- Navigate through complex menus just to view your console
 
-Setting up OBS or similar tools just to display and stream a capture card to Discord was always a hassle for me. I was tired of fighting with complex menus, wrong aspect ratios, and desynchronized audio.
+## The Solution
 
-That's why I built **CapturePlayer**:  
-A simple, modern app that instantly shows your capture card’s video and audio with one click.  
-No complicated setup, no overlays, no advanced configs — just your image and sound, always in sync.
-
----
+CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing else.**
 
 ## Key Features
 
-- **Instant Preview:** One click, and your capture card signal is shown in a window.
-- **Auto Aspect Ratio:** The correct format is detected and set automatically.
-- **Synchronized Audio:** No more lag between video and sound.
-- **Pin to Top:** Keep the window always visible, even while multitasking.
-- **Customizable Colors:** Adjust the UI for your personal style.
-- **Modern, minimal look:** Built with Electron, React, Vite, and Tailwind CSS.
-- **Tested with:** Elgato HD60 S+
+### Clean Viewing Experience
+- Only the capture card image is displayed - no buttons, no toolbars
+- Controls appear on hover and automatically hide themselves
+- Perfect for gaming without distractions
 
----
+### Performance
+- Same low latency as OBS
+- Synchronized audio and video
+- Lightweight on system resources
+
+### Smart Display
+- Automatic aspect ratio detection - window adapts to your input signal
+- Fullscreen mode for immersive gaming
+- Always on Top option to keep window visible
+- Video adjustments (brightness, contrast, saturation, hue)
+
+### Simple Configuration
+- Quick device switching in settings
+- No complex setup required
+- Works immediately after connecting your capture card
+
+## Perfect For
+
+- Playing Nintendo Switch on your PC monitor
+- Streaming console games on Discord
+- Quick capture card viewing without streaming software overhead
+- Anyone who finds OBS overkill for simple capture viewing
 
 ## Installation
 
-Download the latest release from [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases/latest).
+Download the latest release from [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases/latest):
 
-- **Installer:** Download and run `CapturePlayer.Setup.0.1.0.exe` to install CapturePlayer.
-- **Portable:** Download and run `CapturePlayer.0.1.0.portable.exe` – no installation required.
+- **Installer:** `CapturePlayer.Setup.0.1.0.exe` - Standard Windows installation
+- **Portable:** `CapturePlayer.0.1.0.portable.exe` - No installation needed
 
----
+## How to Use
 
-## Usage
+1. Connect your capture card to your PC
+2. Launch CapturePlayer
+3. Click "Start Capture"
+4. Play your game!
 
-1. Launch **CapturePlayer** (from Start menu if installed, or directly via portable EXE).
-2. Connect your capture card.
-3. Click **Start Capture**.
-4. Share the window in Discord (Screen Share) or any video call app.
-
----
+**For Discord streaming:** Share your screen and select the CapturePlayer window
 
 ## Screenshots
 
-Below: CapturePlayer in action with an Elgato HD60 S+
+![Main Window](./screenshot_main.png)
+*Clean display with auto-hiding controls*
 
-![Main Window Example](./screenshot_main.png)
-![Settings Modal Example](./screenshot_settings.png)
+![Settings](./screenshot_settings.png)
+*Simple device and color adjustment settings*
 
----
+## Tested With
 
-## Support & Feedback
+- Elgato HD60 S+
+- Nintendo Switch 2
+- Windows 11
 
-Questions, feedback, or feature requests?  
-Open an [issue](https://github.com/galusperes/CapturePlayer/issues) or contact me via GitHub!
+## Why Not OBS?
 
-If you like the project, please give it a ⭐️ or share it with friends. Pull requests and suggestions are always welcome!
-
----
+OBS is great for streaming, but CapturePlayer gives you instant, clean capture card viewing. The video appears directly in the correct aspect ratio as a window with sound - no buttons, no UI, just clean video. Perfect for gaming and Discord streaming without preview workarounds.
 
 ## License
 
-MIT License  
-© 2025 [galusperes](https://github.com/galusperes)
+MIT License
+
+---
+
+Built for gamers who just want to play. Created by [galusperes](https://github.com/galusperes)
