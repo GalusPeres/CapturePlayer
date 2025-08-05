@@ -51,8 +51,6 @@ Below: CapturePlayer in action with an Elgato HD60 S+
 ![Main Window Example](./screenshot_main.png)
 ![Settings Modal Example](./screenshot_settings.png)
 
-*Tip: To add your own screenshots, simply save your images as `screenshot_main.png` and `screenshot_settings.png` in the same folder as this README, or update the filenames above to match yours!*
-
 ---
 
 ## Support & Feedback
