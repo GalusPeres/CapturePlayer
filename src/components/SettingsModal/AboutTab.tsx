@@ -87,6 +87,7 @@ export default function AboutTab() {
         </button>
 
         {/* Buy me a Coffee */}
+        {/*
         <button
           onClick={() => openLink(COFFEE_URL)}
           className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl focus:outline-none transition-colors flex items-center justify-center space-x-2"
@@ -94,6 +95,7 @@ export default function AboutTab() {
           <span className="text-lg">☕</span>
           <span>Buy me a Coffee</span>
         </button>
+        */}
       </div>
     </>
   );

@@ -71,7 +71,7 @@ export default function SettingsModal({
           border border-zinc-700
           shadow-[0_0_70px_rgba(0,0,0,0.8)]
           w-96 max-w-[90vw]
-          h-[33rem] max-h-[90vh]
+          h-[32rem] max-h-[90vh]
           flex flex-col overflow-hidden
           animate-fade-in
         `}
@@ -178,16 +178,16 @@ export default function SettingsModal({
           ) : (
             <div className="text-center text-white/40 text-xs space-y-2">
               <p>Licensed under <span className="text-white/60">MIT License</span></p>
-              <p>© 2025 Sebastian Wittmann. All rights reserved.</p>
+              <p>© 2025 GalusPeres. All rights reserved.</p>
               <div className="flex justify-center space-x-4">
                 <button
-                  onClick={() => (window.electronAPI as any)?.openExternal?.('https://github.com/yourusername/capture-card-viewer/blob/main/LICENSE.md')}
+                  onClick={() => (window.electronAPI as any)?.openExternal?.('https://github.com/GalusPeres/CapturePlayer/blob/main/LICENSE')}
                   className="text-blue-400 hover:text-blue-300 underline transition-colors"
                 >
                   View License
                 </button>
                 <button
-                  onClick={() => (window.electronAPI as any)?.openExternal?.('https://github.com/yourusername/capture-card-viewer/issues')}
+                  onClick={() => (window.electronAPI as any)?.openExternal?.('https://github.com/GalusPeres/CapturePlayer/issues')}
                   className="text-blue-400 hover:text-blue-300 underline transition-colors"
                 >
                   Report Bug
