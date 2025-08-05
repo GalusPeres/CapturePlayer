@@ -1,0 +1,44 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* -------------------------------------------------------------
+   Custom scrollbar utilities
+   ------------------------------------------------------------- */
+@layer utilities {
+  /* Scrollbar width */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  /* Firefox: Colors */
+  .scrollbar-track {
+    --tw-scrollbar-track: var(--scrollbar-track);
+  }
+  .scrollbar-thumb {
+    --tw-scrollbar-thumb: var(--scrollbar-thumb);
+  }
+
+  /* Webkit browsers */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+}
+
+/* Define scrollbar color variables globally */
+:root {
+  --scrollbar-track: rgba(255,255,255,0.05);
+  --scrollbar-thumb: rgba(255,255,255,0.2);
+  --scrollbar-thumb-hover: rgba(255,255,255,0.3);
+}

@@ -1,0 +1,71 @@
+
+ROOT FILES:
+.env
+.eslintrc.json
+.gitignore
+.prettierrc
+index.html
+LICENSE.md
+package.json
+postcss.config.js
+README.md
+struktur.txt
+tailwind.config.js
+tsconfig.json
+vite.config.ts
+vite.config.ts.timestamp-1753868724332.js
+
+ORDNER: electron
+Auflistung der Ordnerpfade
+Volumeseriennummer : 5012-79A4
+C:\USERS\SEBASTIAN\DESKTOP\PROJEKTE\CLAUDEPROJECTS\CAPTURE-CARD-VIEWER\ELECTRON
+    index.ts
+    preload.ts
+    
+Es sind keine Unterordner vorhanden 
+
+
+ORDNER: src
+Auflistung der Ordnerpfade
+Volumeseriennummer : 5012-79A4
+C:\USERS\SEBASTIAN\DESKTOP\PROJEKTE\CLAUDEPROJECTS\CAPTURE-CARD-VIEWER\SRC
+|   App.tsx
+|   index.css
+|   index.html
+|   logo.svg
+|   main.tsx
+|   
++---assets
+|   \---icons
+|           close.svg
+|           fullscreen.svg
+|           icon.png
+|           pin.svg
+|           play_arrow.svg
+|           settings.svg
+|           stop.svg
+|           
++---components
+|       ControlBar.tsx
+|       DragBar.tsx
+|       HoverControls.tsx
+|       SettingsModal.tsx
+|       SimpleSelect.tsx
+|       VideoCanvas.tsx
+|       
++---context
+|       SettingsContext.tsx
+|       
+\---hooks
+        useCaptureStream.ts
+        
+
+ORDNER: dist-electron
+Auflistung der Ordnerpfade
+Volumeseriennummer : 5012-79A4
+C:\USERS\SEBASTIAN\DESKTOP\PROJEKTE\CLAUDEPROJECTS\CAPTURE-CARD-VIEWER\DIST-ELECTRON
+    index.js
+    preload.js
+    
+Es sind keine Unterordner vorhanden 
+
