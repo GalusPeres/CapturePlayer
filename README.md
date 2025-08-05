@@ -17,15 +17,16 @@ Share the window directly via Discord (screen share) or any other meeting tool.
 
 ## Installation
 
-1. **Download** the latest release from [GitHub Releases](https://github.com/galusperes/captureplayer/releases).
-2. **Unzip and run** (`CapturePlayer.exe` on Windows).
-3. **Connect your capture card** and click **Start Capture**.
+Download the latest release from [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases/latest).
+
+- **Installer:** Download and run `CapturePlayer.Setup.0.1.0.exe` to install CapturePlayer.
+- **Portable:** Download and run `CapturePlayer.0.1.0.portable.exe` – no installation required.
 
 ---
 
 ## Usage
 
-1. Launch **CapturePlayer**.
+1. Launch **CapturePlayer** (from Start menu if installed, or directly via portable EXE).
 2. Select your capture card (if needed).
 3. Click **Start Capture**.
 4. Share the window in Discord (Screen Share) or any other video call app.
@@ -38,16 +39,11 @@ Share the window directly via Discord (screen share) or any other meeting tool.
 
 ---
 
-## Support & Feedback
+## Security & Authenticity
 
-Questions, bugs, or feature requests?  
-Open an [issue](https://github.com/galusperes/captureplayer/issues) on GitHub!
+All official downloads are published via [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases).  
+Each file shows a SHA256 hash for verification.
 
----
-
-## License
-
-MIT License  
-© 2025 [galusperes](https://github.com/galusperes)
-
----
+**How to verify the hash (Windows PowerShell):**
+```powershell
+Get-FileHash .\CapturePlayer.Setup.0.1.0.exe -Algorithm SHA256
