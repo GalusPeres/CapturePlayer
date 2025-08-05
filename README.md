@@ -33,17 +33,24 @@ Download the latest release from [GitHub Releases](https://github.com/galusperes
 
 ---
 
-## Screenshot
+## Support & Feedback
 
-*(Add a screenshot here: `![Screenshot](./screenshot.png)`)*
+Questions, feedback or feature requests?  
+Open an [issue](https://github.com/galusperes/CapturePlayer/issues) or contact me via GitHub!
+
+If you like the project, consider giving it a ⭐️ on GitHub or sharing it with friends.  
+Pull requests and suggestions are very welcome!
 
 ---
 
-## Security & Authenticity
+## Transparency & Trust
 
-All official downloads are published via [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases).  
-Each file shows a SHA256 hash for verification.
+This project is fully open source – you can [view the code](https://github.com/galusperes/CapturePlayer) and even build the app yourself if you want maximum control.  
+If you discover bugs, have security concerns, or ideas to improve CapturePlayer, please let me know via an Issue.
 
-**How to verify the hash (Windows PowerShell):**
-```powershell
-Get-FileHash .\CapturePlayer.Setup.0.1.0.exe -Algorithm SHA256
+---
+
+## License
+
+MIT License  
+© 2025 [galusperes](https://github.com/galusperes)
