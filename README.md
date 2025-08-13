@@ -1,12 +1,8 @@
-<table style="border: none;">
-<tr style="border: none;">
-<td rowspan="2" style="border: none; padding: 0;"><img src="src/assets/icons/icon.png" alt="CapturePlayer Icon" width="64" height="64"></td>
-<td style="border: none; vertical-align: bottom; padding-left: 16px; padding-bottom: 0; padding-top: 0; padding-right: 0;"><h1 style="margin: 0;">CapturePlayer</h1></td>
-</tr>
-<tr style="border: none;">
-<td style="border: none; vertical-align: top; padding-left: 16px; padding-top: 0; padding-bottom: 0; padding-right: 0;"><strong>Version 0.2.0</strong></td>
-</tr>
-</table>
+<img src="src/assets/icons/icon.png" alt="CapturePlayer Icon" width="64" height="64">
+
+# CapturePlayer
+
+**Version 0.2.0**
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles.
 
