@@ -25,15 +25,28 @@ export default function AboutTab() {
     setIsCheckingUpdates(true);
     
     try {
-      // TODO: Implement real update check API later
-      // e.g. GitHub Releases API
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const response = await fetch('https://api.github.com/repos/GalusPeres/CapturePlayer/releases/latest');
+      const data = await response.json();
       
-      // For now: Just show info message
-      alert('You are running the latest version! 🎉');
+      const latestVersion = data.tag_name; // e.g. "v0.2.0"
+      const currentVersion = `v${APP_VERSION}`; // e.g. "v0.2.0"
+      
+      if (latestVersion === currentVersion) {
+        alert('You are running the latest version!');
+      } else {
+        const updateConfirm = confirm(
+          `New version ${latestVersion} is available!\n` +
+          `You are running ${currentVersion}.\n\n` +
+          `Click OK to download the update.`
+        );
+        
+        if (updateConfirm) {
+          openLink(data.html_url); // Opens GitHub release page
+        }
+      }
     } catch (error) {
       console.error('Update check failed:', error);
-      alert('Could not check for updates. Please try again later.');
+      alert('Could not check for updates. Please check your internet connection.');
     } finally {
       setIsCheckingUpdates(false);
     }
