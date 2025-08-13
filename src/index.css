@@ -42,3 +42,82 @@
   --scrollbar-thumb: rgba(255,255,255,0.2);
   --scrollbar-thumb-hover: rgba(255,255,255,0.3);
 }
+
+/* Remove white focus outlines in modals */
+@layer base {
+  button:focus,
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* =============================================================
+   Custom <input type="range"> (für Electron/Chromium & Firefox)
+   ============================================================= */
+
+/* Klasse für deinen Volume-Slider */
+.volume-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  /* gefüllter Teil + ungefüllter Track via Background-Stacking (WebKit) */
+  background:
+    linear-gradient(to right, #3b82f6, #06b6d4) 0/var(--val, 0%) 100% no-repeat,
+    #3b3b3b;
+  cursor: pointer;
+  position: relative;
+}
+.volume-range:focus { outline: none; }
+
+/* Unsichtbare klickbare Fläche über dem Slider */
+.volume-range::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+}
+
+/* WebKit (Chrome/Electron) */
+.volume-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent; /* wir nutzen das Background-Stacking oben */
+}
+.volume-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  margin-top: -4px; /* Thumb mittig auf 6px Track */
+  cursor: pointer;
+}
+
+/* Firefox */
+.volume-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #3b3b3b;
+}
+.volume-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #3b82f6, #06b6d4);
+}
+.volume-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}

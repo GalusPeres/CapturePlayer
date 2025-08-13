@@ -30,15 +30,31 @@ export default function App() {
   const [alwaysOnTop, setAlwaysOnTop]   = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false);
+  const [fullscreenZoom, setFullscreenZoom] = useState(100);
   
   const timeoutRef                      = useRef<number>();
   const processingTimeoutRef            = useRef<number>();
+  const zoomIndicatorTimeoutRef         = useRef<number>();
 
   // Signal info (Resolution + FPS)
   const [resolution, setResolution] = useState<{ w: number, h: number, fps?: number } | null>(null);
 
   useEffect(() => {
     window.electronAPI.isAlwaysOnTop().then(setAlwaysOnTop);
+    // Force reset zoom indicator on app start
+    setShowZoomIndicator(false);
+    
+    // Autostart with devices if enabled
+    if (settings.autostartWithDevices && settings.videoDevice && !running) {
+      console.log('🚀 Autostarting with saved devices...');
+      handleToggle();
+    }
+    
+    // Cleanup zoom timeout only on unmount
+    return () => {
+      clearTimeout(zoomIndicatorTimeoutRef.current);
+    };
   }, []);
 
   // Fullscreen event listener
@@ -66,6 +82,30 @@ export default function App() {
     timeoutRef.current = window.setTimeout(() => setHideCursor(true), 5000);
   }, []);
 
+  // Handle zoom with Ctrl+Mouse Wheel
+  const handleZoom = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const zoomStep = 5;
+      const delta = e.deltaY > 0 ? -zoomStep : zoomStep;
+      
+      if (isFullscreen) {
+        const newZoom = Math.max(50, Math.min(300, fullscreenZoom + delta));
+        setFullscreenZoom(newZoom);
+      } else {
+        const newZoom = Math.max(50, Math.min(300, settings.zoomLevel + delta));
+        settings.setZoomLevel(newZoom);
+      }
+      
+      // Show zoom indicator for 3 seconds
+      setShowZoomIndicator(true);
+      clearTimeout(zoomIndicatorTimeoutRef.current);
+      zoomIndicatorTimeoutRef.current = window.setTimeout(() => {
+        setShowZoomIndicator(false);
+      }, 3000);
+    }
+  }, [settings, isFullscreen, fullscreenZoom]);
+
   useEffect(() => {
     const onMove = resetCursorTimer;
     const onClick = resetCursorTimer;
@@ -77,16 +117,19 @@ export default function App() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('click', onClick);
     window.addEventListener('mouseleave', onLeave);
+    window.addEventListener('wheel', handleZoom, { passive: false });
     resetCursorTimer();
     
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('click', onClick);
       window.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('wheel', handleZoom);
       clearTimeout(timeoutRef.current);
       clearTimeout(processingTimeoutRef.current);
+      // DON'T clear zoomIndicatorTimeoutRef here - it breaks the 3s timeout!
     };
-  }, [resetCursorTimer]);
+  }, [resetCursorTimer, handleZoom]);
 
   // Safety timeout for processing state
   const setProcessingWithTimeout = (processing: boolean) => {
@@ -176,6 +219,13 @@ export default function App() {
       console.log('💾 Updating settings...');
       settings.setVideoDevice(videoDev);
       settings.setAudioDevice(audioDev);
+      
+      // Disable autostart if devices changed
+      if (settings.autostartWithDevices && (videoDev !== settings.videoDevice || audioDev !== settings.audioDevice)) {
+        console.log('🔄 Devices changed - disabling autostart');
+        settings.setAutostartWithDevices(false);
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log('▶️ Starting capture with new devices...');
@@ -206,20 +256,24 @@ export default function App() {
   useEffect(() => {
     if (!window.electronAPI.setAspectRatio) return;
     let ratio: number | null = null;
+    
     if (settings.autoAspectRatio && resolution?.w && resolution?.h) {
       ratio = resolution.w / resolution.h;
     } else if (!settings.autoAspectRatio) {
       switch (settings.manualAspectRatio) {
         case '16:9': ratio = 16 / 9; break;
         case '4:3':  ratio = 4 / 3; break;
-        case '1:1':  ratio = 1;     break;
+        case '1:1':  ratio = 1; break;
         case '21:9': ratio = 21 / 9; break;
         case 'free': ratio = 0; break;
-        default:     ratio = 16 / 9;
+        default: 
+          // Check if it's a custom ratio
+          const customRatio = settings.customRatios.find(cr => cr.id === settings.manualAspectRatio);
+          ratio = customRatio ? customRatio.ratio : 16 / 9;
       }
     }
     window.electronAPI.setAspectRatio(ratio);
-  }, [settings.autoAspectRatio, settings.manualAspectRatio, resolution]);
+  }, [settings.autoAspectRatio, settings.manualAspectRatio, settings.customRatios, resolution]);
 
   return (
     <div
@@ -232,7 +286,28 @@ export default function App() {
     >
       <DragBar />
 
-      <VideoCanvas stream={stream} setResolution={setResolution} />
+      <VideoCanvas 
+        stream={stream} 
+        setResolution={setResolution}
+        zoomLevel={isFullscreen ? fullscreenZoom : settings.zoomLevel}
+        isFullscreen={isFullscreen}
+      />
+
+      {/* Zoom Indicator - Top Right - Always shows for 3s when zooming */}
+      {showZoomIndicator && (
+        <div className="
+          absolute top-4 right-4 z-50
+          px-3 py-2 rounded-md
+          bg-stone-600/50 backdrop-blur-[6px]
+          border border-stone-600/30
+          text-white text-sm font-medium shadow
+          pointer-events-none
+          transition-all duration-150 ease-out
+        "
+        >
+          {isFullscreen ? fullscreenZoom : settings.zoomLevel}%
+        </div>
+      )}
 
       <HoverControls
         running={running}
@@ -253,6 +328,9 @@ export default function App() {
         onToggle={handleToggle}
         onApplyDevices={handleApplyDevices}
         signalInfo={resolution}
+        isFullscreen={isFullscreen}
+        fullscreenZoom={fullscreenZoom}
+        setFullscreenZoom={setFullscreenZoom}
       />
     </div>
   );

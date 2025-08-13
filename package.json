@@ -1,6 +1,6 @@
 {
   "name": "captureplayer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Electron + Vite + React + Tailwind CapturePlayer – Play your capture card instantly and share with Discord.",
   "author": {
     "name": "galusperes"
@@ -50,6 +50,7 @@
       "buildResources": "resources"
     },
     "win": {
+      "icon": "src/assets/icons/icon.ico",
       "target": [
         {
           "target": "nsis",

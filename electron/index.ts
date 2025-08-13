@@ -12,6 +12,7 @@ function createMainWindow() {
     minHeight: 450,
     frame: false,
     backgroundColor: '#000000',
+    icon: path.join(__dirname, '../src/assets/icons/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

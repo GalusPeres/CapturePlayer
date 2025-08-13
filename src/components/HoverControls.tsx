@@ -1,8 +1,11 @@
-// src/components/HoverControls.tsx - Hover control buttons with fullscreen always-on-top disabled
-import React, { useState, useRef } from 'react';
-import { GlassTooltip } from './GlassTooltip';
+// src/components/HoverControls.tsx
+// Buttons shift dynamically when the Pin button is removed in fullscreen.
+// We compute right offsets in 56px steps from the right edge so spacing stays consistent.
 
-import playArrow  from '../assets/icons/play_arrow.svg';
+import React from 'react';
+import HudButton from './HudButton';
+
+import playArrow  from '../assets/icons/play.png';
 import stopIcon   from '../assets/icons/stop.svg';
 import fullscreen from '../assets/icons/fullscreen.svg';
 import settings   from '../assets/icons/settings.svg';
@@ -32,221 +35,115 @@ export default function HoverControls({
   visible,
   isFullscreen,
 }: Props) {
-  const animClass = visible
-    ? 'animate-slide-up-fast'
-    : 'animate-slide-down-fast';
+  const animClass = visible ? 'animate-slide-up-fast' : 'animate-slide-down-fast';
 
-  const btnInner = `
-    w-full h-full flex items-center justify-center
-    focus:outline-none transform transition-transform
-    duration-200 ease-out hover:scale-130 cursor-pointer
-  `;
+  // 56px grid from the right: close=56, then 112, 168, 224, 280, 336, ...
+  const STEP = 56;
+  const rightPx = (i: number) => STEP * (i + 1); // i = zero-based index from the right
 
-  // Disabled button style for fullscreen mode
-  const btnInnerDisabled = `
-    w-full h-full flex items-center justify-center
-    opacity-40 cursor-not-allowed
-  `;
+  // Right-to-left order; Pin is hidden in fullscreen, Live is shown only when running
+  // order indices (from right): close(0), pin(1), settings(2), fullscreen(3), play(4), live(5)
+  const order: Array<
+    | { key: 'close'     ; show: boolean }
+    | { key: 'pin'       ; show: boolean }
+    | { key: 'settings'  ; show: boolean }
+    | { key: 'fullscreen'; show: boolean }
+    | { key: 'play'      ; show: boolean }
+    | { key: 'live'      ; show: boolean }
+  > = [
+    { key: 'close',      show: true },
+    { key: 'pin',        show: !isFullscreen }, // hide in fullscreen
+    { key: 'settings',   show: true },
+    { key: 'fullscreen', show: true },
+    { key: 'play',       show: true },
+    { key: 'live',       show: running },
+  ];
 
-  const [tipPlay, setTipPlay]         = useState(false);
-  const [tipFs, setTipFs]             = useState(false);
-  const [tipSettings, setTipSettings] = useState(false);
-  const [tipPin, setTipPin]           = useState(false);
-  const [tipClose, setTipClose]       = useState(false);
-
-  // Timeout refs for delayed tooltips
-  const playTimeoutRef     = useRef<number>();
-  const fsTimeoutRef       = useRef<number>();
-  const settingsTimeoutRef = useRef<number>();
-  const pinTimeoutRef      = useRef<number>();
-  const closeTimeoutRef    = useRef<number>();
-
-  const playRef     = useRef<HTMLDivElement>(null);
-  const fsRef       = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  const pinRef      = useRef<HTMLDivElement>(null);
-  const closeRef    = useRef<HTMLDivElement>(null);
-
-  // Helper functions for delayed tooltips
-  const showTooltipDelayed = (setter: (show: boolean) => void, timeoutRef: React.MutableRefObject<number | undefined>) => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => setter(true), 700);
-  };
-
-  const hideTooltipImmediate = (setter: (show: boolean) => void, timeoutRef: React.MutableRefObject<number | undefined>) => {
-    clearTimeout(timeoutRef.current);
-    setter(false);
-  };
-
-  // Always-on-Top handler with fullscreen check
-  const handleAlwaysOnTopClick = () => {
-    if (isFullscreen) return; // Block in fullscreen
-    onAlwaysOnTop();
-  };
-
-  // Tooltip position: bottom-6 (24px) + h-12 (48px) + 4px spacing = 76px
-  const tooltipPos = 'bottom-[76px]';
+  const visibleOrder = order.filter(o => o.show);
+  const rightIndex = (key: typeof order[number]['key']) =>
+    visibleOrder.findIndex(o => o.key === key);
 
   return (
     <>
-      {/* LIVE Badge */}
+      {/* Live badge follows the same grid */}
       {running && (
         <div
           className={`
-            group
-            absolute bottom-6 right-[336px] no-drag ${animClass}
+            absolute bottom-6 no-drag ${animClass}
             backdrop-filter backdrop-blur-[6px]
-            bg-green-600/70
+            bg-gradient-to-br from-blue-500/70 to-green-600/70
             px-4 h-12 rounded-full
             flex items-center justify-center cursor-default
             border border-green-500/70
           `}
-          style={{ pointerEvents: visible ? 'auto' : 'none' }}
+          style={{
+            pointerEvents: visible ? 'auto' : 'none',
+            right: rightPx(rightIndex('live')),
+          }}
         >
           <span className="text-white text-sm">Live</span>
         </div>
       )}
 
-      {/* Play/Stop Button */}
-      <div
-        ref={playRef}
-        onMouseEnter={() => showTooltipDelayed(setTipPlay, playTimeoutRef)}
-        onMouseLeave={() => hideTooltipImmediate(setTipPlay, playTimeoutRef)}
+      {/* Play / Stop */}
+      <HudButton
+        icon={running ? stopIcon : playArrow}
+        tooltip={running ? 'Stop Capture' : 'Start Capture'}
         onClick={onToggle}
-        className={`
-          absolute bottom-6 right-[280px] no-drag ${animClass}
-          backdrop-filter backdrop-blur-[6px]
-          ${running
-            ? 'bg-red-600/70 hover:bg-red-600/80 border border-red-500/30'
-            : 'bg-green-700/70 hover:bg-green-700/80 border border-green-600/30'}
-          w-12 h-12 rounded-full flex items-center justify-center cursor-pointer
-        `}
-        style={{ pointerEvents: visible ? 'auto' : 'none' }}
-      >
-        <button className={btnInner}>
-          <img src={running ? stopIcon : playArrow} className="w-6 h-6" />
-        </button>
-      </div>
-      <GlassTooltip
-        visible={tipPlay && visible}
-        animClass={`${animClass} right-[calc(280px-22px)] ${tooltipPos}`}
-      >
-        {running ? 'Stop Capture' : 'Start Capture'}
-      </GlassTooltip>
+        positionClass={`absolute bottom-6 no-drag ${animClass}`}
+        style={{ right: rightPx(rightIndex('play')) }}
+        visible={visible}
+        variant="green"
+        active={running}
+        iconSize="large"
+      />
 
-      {/* Fullscreen Button */}
-      <div
-        ref={fsRef}
-        onMouseEnter={() => showTooltipDelayed(setTipFs, fsTimeoutRef)}
-        onMouseLeave={() => hideTooltipImmediate(setTipFs, fsTimeoutRef)}
+      {/* Fullscreen */}
+      <HudButton
+        icon={fullscreen}
+        tooltip={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
         onClick={onFullscreen}
-        className={`
-          absolute bottom-6 right-[224px] no-drag ${animClass}
-          backdrop-filter backdrop-blur-[6px]
-          bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30
-          w-12 h-12 rounded-full flex items-center justify-center cursor-pointer
-        `}
-        style={{ pointerEvents: visible ? 'auto' : 'none' }}
-      >
-        <button className={btnInner}>
-          <img src={fullscreen} className="w-6 h-6" />
-        </button>
-      </div>
-      <GlassTooltip
-        visible={tipFs && visible}
-        animClass={`${animClass} right-[calc(224px-35px)] ${tooltipPos}`}
-      >
-        {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-      </GlassTooltip>
+        positionClass={`absolute bottom-6 no-drag ${animClass}`}
+        style={{ right: rightPx(rightIndex('fullscreen')) }}
+        visible={visible}
+        variant="gray"
+      />
 
-      {/* Settings Button */}
-      <div
-        ref={settingsRef}
-        onMouseEnter={() => showTooltipDelayed(setTipSettings, settingsTimeoutRef)}
-        onMouseLeave={() => hideTooltipImmediate(setTipSettings, settingsTimeoutRef)}
+      {/* Settings */}
+      <HudButton
+        icon={settings}
+        tooltip="Open Settings"
         onClick={onSettings}
-        className={`
-          absolute bottom-6 right-[168px] no-drag ${animClass}
-          backdrop-filter backdrop-blur-[6px]
-          bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30
-          w-12 h-12 rounded-full flex items-center justify-center cursor-pointer
-        `}
-        style={{ pointerEvents: visible ? 'auto' : 'none' }}
-      >
-        <button className={btnInner}>
-          <img src={settings} className="w-6 h-6" />
-        </button>
-      </div>
-      <GlassTooltip
-        visible={tipSettings && visible}
-        animClass={`${animClass} right-[calc(168px-25px)] ${tooltipPos}`}
-      >
-        Open Settings
-      </GlassTooltip>
+        positionClass={`absolute bottom-6 no-drag ${animClass}`}
+        style={{ right: rightPx(rightIndex('settings')) }}
+        visible={visible}
+        variant="gray"
+      />
 
-      {/* Always on Top Button - With fullscreen logic */}
-      <div
-        ref={pinRef}
-        onMouseEnter={() => !isFullscreen && showTooltipDelayed(setTipPin, pinTimeoutRef)}
-        onMouseLeave={() => hideTooltipImmediate(setTipPin, pinTimeoutRef)}
-        onClick={handleAlwaysOnTopClick}
-        className={`
-          absolute bottom-6 right-[112px] no-drag ${animClass}
-          backdrop-filter backdrop-blur-[6px]
-          ${isFullscreen 
-            ? 'bg-zinc-900/50 border border-zinc-800/30' // Disabled style
-            : alwaysOnTop
-              ? 'bg-blue-700/70 hover:bg-blue-700/80 border border-blue-600/30'
-              : 'bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30'
-          }
-          w-12 h-12 rounded-full flex items-center justify-center
-          ${isFullscreen ? 'cursor-not-allowed' : 'cursor-pointer'}
-        `}
-        style={{ pointerEvents: visible ? 'auto' : 'none' }}
-      >
-        <button className={isFullscreen ? btnInnerDisabled : btnInner}>
-          <img src={pinIcon} className="w-6 h-6" />
-        </button>
-      </div>
-      <GlassTooltip
-        visible={tipPin && visible && !isFullscreen}
-        animClass={`${animClass} right-[calc(112px-46px)] ${tooltipPos}`}
-      >
-        {alwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top'}
-      </GlassTooltip>
-      
-      {/* Disabled tooltip in fullscreen */}
-      <GlassTooltip
-        visible={tipPin && visible && isFullscreen}
-        animClass={`${animClass} right-[calc(112px-80px)] ${tooltipPos}`}
-      >
-        Always on Top disabled in fullscreen
-      </GlassTooltip>
+      {/* Always on Top — not rendered in fullscreen */}
+      {!isFullscreen && (
+        <HudButton
+          icon={pinIcon}
+          tooltip={alwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top'}
+          onClick={onAlwaysOnTop}
+          positionClass={`absolute bottom-6 no-drag ${animClass}`}
+          style={{ right: rightPx(rightIndex('pin')) }}
+          visible={visible}
+          variant="blue"
+          active={alwaysOnTop}
+        />
+      )}
 
-      {/* Close Button */}
-      <div
-        ref={closeRef}
-        onMouseEnter={() => showTooltipDelayed(setTipClose, closeTimeoutRef)}
-        onMouseLeave={() => hideTooltipImmediate(setTipClose, closeTimeoutRef)}
+      {/* Close */}
+      <HudButton
+        icon={closeIcon}
+        tooltip="Close Application"
         onClick={onClose}
-        className={`
-          absolute bottom-6 right-[56px] no-drag ${animClass}
-          backdrop-filter backdrop-blur-[6px]
-          bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30
-          w-12 h-12 rounded-full flex items-center justify-center cursor-pointer
-        `}
-        style={{ pointerEvents: visible ? 'auto' : 'none' }}
-      >
-        <button className={btnInner}>
-          <img src={closeIcon} className="w-6 h-6" />
-        </button>
-      </div>
-      <GlassTooltip
-        visible={tipClose && visible}
-        animClass={`${animClass} right-[calc(56px-37px)] ${tooltipPos}`}
-      >
-        Close Application
-      </GlassTooltip>
+        positionClass={`absolute bottom-6 no-drag ${animClass}`}
+        style={{ right: rightPx(rightIndex('close')) }}
+        visible={visible}
+        variant="gray"
+      />
     </>
   );
 }

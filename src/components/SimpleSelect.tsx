@@ -79,7 +79,7 @@ export function SimpleSelect({
               className={`
                 px-3 py-1 cursor-pointer
                 ${o.value === value
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                   : 'text-zinc-200 hover:bg-zinc-700 hover:text-white'}
               `}
             >

@@ -1,6 +1,20 @@
-# CapturePlayer
+<div style="display: flex; align-items: center; margin-bottom: 24px;">
+  <img src="src/assets/icons/icon.png" alt="CapturePlayer Icon" width="64" height="64" style="margin-right: 16px;">
+  <div>
+    <h1 style="margin: 0; font-size: 2rem;">CapturePlayer</h1>
+  </div>
+</div>
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles.
+
+## What's New in v0.2.0
+
+- **Autostart Function** - Launch with capture already running
+- **Custom Aspect Ratio Presets** - Create and save your own aspect ratios  
+- **Color Presets System** - Save favorite brightness, contrast, saturation & hue combinations
+- **Zoom Control** - Zoom in/out with Ctrl + Mouse Wheel (fullscreen & windowed)
+- **Complete Settings Overhaul** - New preset-based configuration system
+- **Improved Design** - Enhanced UI/UX throughout the application
 
 ## The Problem
 
@@ -26,14 +40,17 @@ CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing 
 - Synchronized audio and video
 - Lightweight on system resources
 
-### Smart Display
+### Smart Display & Customization
 - Automatic aspect ratio detection - window adapts to your input signal
-- Fullscreen mode for immersive gaming
+- **Custom aspect ratio presets** - create and save your own ratios
+- Fullscreen mode with **zoom control** (Ctrl + Mouse Wheel)
 - Always on Top option to keep window visible
-- Video adjustments (brightness, contrast, saturation, hue)
+- **Color adjustment presets** - save your favorite brightness, contrast, saturation & hue settings
 
 ### Simple Configuration
 - Quick device switching in settings
+- **Autostart function** - automatically starts capture when app launches
+- **Preset management** - save and load your favorite settings combinations
 - No complex setup required
 - Works immediately after connecting your capture card
 
@@ -48,15 +65,17 @@ CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing 
 
 Download the latest release from [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases/latest):
 
-- **Installer:** `CapturePlayer.Setup.0.1.0.exe` - Standard Windows installation
-- **Portable:** `CapturePlayer.0.1.0.portable.exe` - No installation needed
+- **Installer:** `CapturePlayer.Setup.0.2.0.exe` - Standard Windows installation
+- **Portable:** `CapturePlayer.0.2.0.portable.exe` - No installation needed
 
 ## How to Use
 
 1. Connect your capture card to your PC
 2. Launch CapturePlayer
-3. Click "Start Capture"
-4. Play your game!
+3. Click "Start Capture" or enable autostart in settings
+4. **Customize your experience:** Create aspect ratio and color presets in settings
+5. **Zoom in/out:** Hold Ctrl + scroll mouse wheel (works in fullscreen too)
+6. Play your game!
 
 **For Discord streaming:** Share your screen and select the CapturePlayer window
 
