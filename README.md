@@ -1,10 +1,9 @@
-<div style="display: flex; align-items: center; margin-bottom: 24px;">
-  <img src="src/assets/icons/icon.png" alt="CapturePlayer Icon" width="64" height="64" style="margin-right: 12px;">
-  <div>
-    <h1 style="margin: 0; font-size: 2rem;">CapturePlayer</h1>
-    <p style="margin: 0; color: #888; font-size: 1rem;">Version 0.2.0</p>
-  </div>
-</div>
+<img src="src/assets/icons/icon.png" alt="CapturePlayer Icon" width="64" height="64" align="left" style="margin-right: 16px;">
+
+# CapturePlayer
+**Version 0.2.0**
+
+<br clear="left">
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles.
 
