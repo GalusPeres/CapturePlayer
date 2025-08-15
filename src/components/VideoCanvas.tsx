@@ -1,15 +1,20 @@
 // src/components/VideoCanvas.tsx - Video display with color filters and resolution detection
 import React, { useRef, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import playIcon from '../assets/icons/play.png';
+import settingsIcon from '../assets/icons/settings.svg';
 
 export type Props = {
   stream: MediaStream | null;
   setResolution?: (res: { w: number; h: number; fps?: number } | null) => void;
   zoomLevel?: number;
   isFullscreen?: boolean;
+  running?: boolean;
+  isProcessing?: boolean;
+  isInitializing?: boolean;
 };
 
-const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, isFullscreen = false }) => {
+const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, isFullscreen = false, running = false, isProcessing = false, isInitializing = false }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
 
@@ -46,15 +51,26 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
     }
   };
 
-  // Measure video resolution and frame rate
+  // Measure video resolution and frame rate - only when stream changes (not continuous)
   useEffect(() => {
-    if (!videoRef.current) return;
-    let rafId: number;
+    if (!videoRef.current || !stream) {
+      setResolution?.(null);
+      return;
+    }
+    
+    let isActive = true;
 
     function measureVideoInfo() {
-      const video = videoRef.current!;
+      if (!isActive) return;
+      
+      const video = videoRef.current;
+      if (!video || !video.srcObject) {
+        setResolution?.(null);
+        return;
+      }
+      
       const track = (video.srcObject as MediaStream | null)?.getVideoTracks?.()?.[0];
-      if (track) {
+      if (track && track.readyState === 'live') {
         const trackSettings = track.getSettings?.();
         let fps: number | undefined = undefined;
         if (trackSettings?.frameRate) fps = Math.round(trackSettings.frameRate);
@@ -66,19 +82,30 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
       } else {
         setResolution?.(null);
       }
-      rafId = requestAnimationFrame(measureVideoInfo);
     }
-    measureVideoInfo();
+    
+    // Single measurement when stream changes - no continuous polling
+    const timeoutId = setTimeout(measureVideoInfo, 200);
+    
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
+      isActive = false;
+      clearTimeout(timeoutId);
     };
-  }, [setResolution]);
+  }, [setResolution, stream]);
 
-  // Set video stream source
+  // Set video stream source with cleanup
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+    const video = videoRef.current;
+    if (video && stream) {
+      video.srcObject = stream;
     }
+    
+    // Cleanup previous stream
+    return () => {
+      if (video && video.srcObject !== stream) {
+        video.srcObject = null;
+      }
+    };
   }, [stream]);
 
   // Get Enhancement configuration  
@@ -131,9 +158,49 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
             transform: `scale(${getScaleFactor()})`,
           }}
         />
+        
+        {/* Info overlay when not running or no video device while live - but not during processing or initializing */}
+        {!isInitializing && !isProcessing && (!running || (running && settings.videoDevice === '')) && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-white/60">
+              {running && settings.videoDevice === '' ? (
+                <div className="text-lg leading-relaxed">
+                  <div>No video device selected</div>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <span>Press</span>
+                    <img src={settingsIcon} className="w-5 h-5" alt="" />
+                    <span>to select video device</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-lg leading-relaxed">
+                  <div className="flex items-center justify-center gap-2">
+                    <span>Press</span>
+                    <img src={playIcon} className="w-5 h-5" alt="" />
+                    <span>to start capture</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <span>or press</span>
+                    <img src={settingsIcon} className="w-5 h-5" alt="" />
+                    <span>to change devices</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
 };
 
-export default VideoCanvas;
+export default React.memo(VideoCanvas, (prevProps, nextProps) => {
+  return (
+    prevProps.stream === nextProps.stream &&
+    prevProps.zoomLevel === nextProps.zoomLevel &&
+    prevProps.isFullscreen === nextProps.isFullscreen &&
+    prevProps.running === nextProps.running &&
+    prevProps.isProcessing === nextProps.isProcessing &&
+    prevProps.isInitializing === nextProps.isInitializing
+  );
+});
