@@ -102,4 +102,4 @@ MIT License
 
 ---
 
-Built for gamers who just want to play. Created by [galusperes](https://github.com/galusperes)
+Built for gamers who just want to play. Created by [galusperes](https://github.com/galusperes)# Force Contributors Refresh
