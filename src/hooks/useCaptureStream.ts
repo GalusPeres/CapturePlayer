@@ -14,10 +14,11 @@ export function useCaptureStream() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef   = useRef<MediaStreamAudioSourceNode | null>(null);
   const gainRef     = useRef<GainNode | null>(null);
+  const startingRef = useRef<boolean>(false);
 
   // Improved cleanup function for audio resources
   const cleanup = useCallback(() => {
-    console.log('🧹 Cleaning up audio resources...');
+    // console.log('🧹 Cleaning up audio resources...');
     
     // 1) First disconnect audio graph
     try {
@@ -80,7 +81,14 @@ export function useCaptureStream() {
 
   const start = useCallback(
     async (overrides: DeviceOverrides = {}) => {
+      // Simple guard against multiple simultaneous starts
+      if (startingRef.current) {
+        console.log('⚠️ Already starting, ignoring');
+        return;
+      }
+      
       console.log('▶️ Starting capture stream with overrides:', overrides);
+      startingRef.current = true;
       
       try {
         // If stream is already running, stop it first and wait briefly
@@ -99,18 +107,22 @@ export function useCaptureStream() {
 
         // MediaStream constraints
         const constraints: any = {
-          video: videoDev
-            ? { deviceId: { exact: videoDev } }
-            : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-          audio: {
-            ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
-            sampleRate:       48000,
-            channelCount:     2,
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl:  false,
-            latency:          0,
-          },
+          video: videoDev === '' 
+            ? false  // No video when empty string
+            : videoDev
+              ? { deviceId: { exact: videoDev } }
+              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+          audio: audioDev === ''
+            ? false  // No audio when empty string
+            : {
+                ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
+                sampleRate:       48000,
+                channelCount:     2,
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl:  false,
+                latency:          0,
+              },
         };
 
         // 1) Get MediaStream
@@ -160,6 +172,8 @@ export function useCaptureStream() {
         cleanup();
         setStream(null);
         throw error;
+      } finally {
+        startingRef.current = false;
       }
     },
     [settings.videoDevice, settings.audioDevice, settings.volume, stream, stop, cleanup]
@@ -177,11 +191,16 @@ export function useCaptureStream() {
     }
   }, [settings.volume]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount with memory management
   useEffect(() => {
     return () => {
-      console.log('🧹 Component unmounting, cleaning up...');
+      // console.log('🧹 Component unmounting, cleaning up...');
       cleanup();
+      
+      // Force garbage collection if available (dev only)
+      if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && (window as any).gc) {
+        (window as any).gc();
+      }
     };
   }, [cleanup]);
 

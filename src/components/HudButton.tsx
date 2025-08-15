@@ -119,7 +119,8 @@ export default function HudButton({
       >
         <img
           src={icon}
-          className={`${iconSizeClass} transition-transform duration-200 ease-out ${iconHoverScale} ${iconDisabledStyle}`}
+          className={`${iconSizeClass} transition-all duration-150 ease-out ${iconHoverScale} ${iconDisabledStyle}`}
+          key={icon} // Force immediate re-render when icon changes
         />
       </div>
 

@@ -1,5 +1,5 @@
 // src/components/SettingsModal/SettingsModal.tsx - Main Container
-import React, { useState, useRef, KeyboardEvent } from 'react';
+import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import BasicTab from './DevicesTab';
 import DisplayTab, { useViewTabActions } from './ViewTab';
@@ -20,6 +20,9 @@ type Props = {
   isFullscreen?: boolean;
   fullscreenZoom?: number;
   setFullscreenZoom?: (zoom: number) => void;
+  onDeviceSelectionChange?: (videoDev: string, audioDev: string) => void;
+  activeVideoDevice?: string;
+  activeAudioDevice?: string;
 };
 
 export default function SettingsModal({
@@ -32,11 +35,25 @@ export default function SettingsModal({
   isFullscreen = false,
   fullscreenZoom = 100,
   setFullscreenZoom = () => {},
+  onDeviceSelectionChange,
+  activeVideoDevice = '',
+  activeAudioDevice = '',
 }: Props) {
   const settings = useSettings();
   const [tab, setTab] = useState<'devices' | 'view' | 'color' | 'about'>('devices');
   const [localVideo, setLocalVideo] = useState(settings.videoDevice);
   const [localAudio, setLocalAudio] = useState(settings.audioDevice);
+  
+  // Update local devices when settings change
+  useEffect(() => {
+    setLocalVideo(settings.videoDevice);
+    setLocalAudio(settings.audioDevice);
+  }, [settings.videoDevice, settings.audioDevice]);
+  
+  // Notify parent about device selection changes
+  useEffect(() => {
+    onDeviceSelectionChange?.(localVideo, localAudio);
+  }, [localVideo, localAudio, onDeviceSelectionChange]);
   
   const colorActions = useColorTabActions();
   const viewActions = useViewTabActions(isFullscreen, fullscreenZoom, setFullscreenZoom);
@@ -59,11 +76,16 @@ export default function SettingsModal({
   };
 
   // Footer Actions
-  const applyDevices = () => onApplyDevices(localVideo, localAudio);
+  const applyDevices = () => {
+    onApplyDevices(localVideo, localAudio);
+    // After applying, the settings will be updated, so local values will sync
+  };
 
 
 
-  const hasDeviceChanges = localVideo !== settings.videoDevice || localAudio !== settings.audioDevice;
+  // Compare with currently active devices in stream, not saved settings
+  const hasDeviceChanges = localVideo !== activeVideoDevice || localAudio !== activeAudioDevice;
+  const bothDevicesDisabled = localVideo === '' && localAudio === '';
 
   if (!visible) return null;
 
@@ -75,7 +97,7 @@ export default function SettingsModal({
     >
       <div
         className={`
-          bg-gradient-to-br from-blue-900/30 to-indigo-900/30
+          bg-gradient-to-br from-blue-900/70 to-green-900/70
           backdrop-blur-xl
           rounded-2xl
           border border-zinc-700
@@ -151,7 +173,7 @@ export default function SettingsModal({
             className={`flex-1 py-2 text-center ${
               tab === 'devices'
                 ? 'text-white relative z-10 rounded-tr-lg'
-                : 'text-white/60 hover:text-white hover:bg-zinc-700/20 rounded-tr-lg'
+                : 'text-white/60 hover:text-white hover:bg-zinc-700/60 rounded-tr-lg'
             } focus:outline-none transition-all`}
           >
             Devices
@@ -164,7 +186,7 @@ export default function SettingsModal({
             className={`flex-1 py-2 text-center ${
               tab === 'view'
                 ? 'text-white relative z-10'
-                : 'text-white/60 hover:text-white hover:bg-zinc-700/20'
+                : 'text-white/60 hover:text-white hover:bg-zinc-700/60'
             } focus:outline-none transition-all rounded-t-lg`}
           >
             View
@@ -176,7 +198,7 @@ export default function SettingsModal({
             className={`flex-1 py-2 text-center ${
               tab === 'color'
                 ? 'text-white relative z-10'
-                : 'text-white/60 hover:text-white hover:bg-zinc-700/20'
+                : 'text-white/60 hover:text-white hover:bg-zinc-700/60'
             } focus:outline-none transition-all rounded-t-lg`}
           >
             Color
@@ -188,7 +210,7 @@ export default function SettingsModal({
             className={`flex-1 py-2 text-center ${
               tab === 'about'
                 ? 'text-white relative z-10 rounded-tl-lg'
-                : 'text-white/60 hover:text-white hover:bg-zinc-700/20 rounded-tl-lg'
+                : 'text-white/60 hover:text-white hover:bg-zinc-700/60 rounded-tl-lg'
             } focus:outline-none transition-all`}
           >
             About
@@ -226,20 +248,23 @@ export default function SettingsModal({
           <div className="absolute top-0 left-4 right-4 h-px bg-zinc-600/40"></div>
           {tab === 'devices' ? (
             <>
-              {hasDeviceChanges && (
+              {running && hasDeviceChanges && !bothDevicesDisabled && (
                 <button
                   onClick={applyDevices}
                   className="px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white rounded-xl focus:outline-none transition-all"
                 >
-                  Apply Devices
+                  Apply Changes
                 </button>
               )}
               <button
                 onClick={onToggle}
+                disabled={!running && bothDevicesDisabled}
                 className={`px-4 py-2 ${
-                  running 
-                    ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border border-red-500/30' 
-                    : 'bg-gradient-to-br from-blue-500 to-green-600 hover:from-blue-600 hover:to-green-700 border border-green-500/30'
+                  !running && bothDevicesDisabled
+                    ? 'bg-gray-600 border border-gray-500/30 text-gray-400 cursor-not-allowed'
+                    : running 
+                      ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border border-red-500/30' 
+                      : 'bg-gradient-to-br from-blue-500 to-green-600 hover:from-blue-600 hover:to-green-700 border border-green-500/30'
                 } text-white rounded-xl focus:outline-none flex items-center gap-2 transition-all`}
               >
                 <img 

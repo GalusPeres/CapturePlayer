@@ -42,25 +42,37 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
 
   // Filter and format video devices for dropdown
   const filteredVideo = useMemo<SimpleSelectOption[]>(
-    () =>
-      videoDevices
+    () => {
+      const devices = videoDevices
         .filter((d) => !/^Default\b/i.test(d.label || ''))
         .map((d, i) => ({
           value: d.deviceId,
           label: cleanLabel(d.label || `Camera ${i + 1}`),
-        })),
+        }));
+      
+      return [
+        { value: '', label: 'No video device' },
+        ...devices
+      ];
+    },
     [videoDevices]
   );
 
   // Filter and format audio devices for dropdown
   const filteredAudio = useMemo<SimpleSelectOption[]>(
-    () =>
-      audioDevices
+    () => {
+      const devices = audioDevices
         .filter((d) => !/^Default\b/i.test(d.label || ''))
         .map((d, i) => ({
           value: d.deviceId,
           label: cleanLabel(d.label || `Microphone ${i + 1}`),
-        })),
+        }));
+      
+      return [
+        { value: '', label: 'No audio device' },
+        ...devices
+      ];
+    },
     [audioDevices]
   );
 
@@ -89,7 +101,10 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
         <SimpleSelect
           options={filteredVideo}
           value={localVideo}
-          onChange={setLocalVideo}
+          onChange={(value) => {
+            setLocalVideo(value);
+            settings.setVideoDevice(value); // Sofort speichern
+          }}
         />
       </div>
 
@@ -99,7 +114,10 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
         <SimpleSelect
           options={filteredAudio}
           value={localAudio}
-          onChange={setLocalAudio}
+          onChange={(value) => {
+            setLocalAudio(value);
+            settings.setAudioDevice(value); // Sofort speichern
+          }}
         />
       </div>
 

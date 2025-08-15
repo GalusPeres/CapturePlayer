@@ -194,7 +194,7 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
     }
   };
 
-  const canCreateCustom = settings.manualAspectRatio === 'free' && settings.customRatios.length < 4;
+  const canCreateCustom = !settings.autoAspectRatio && settings.manualAspectRatio === 'free' && settings.customRatios.length < 4;
   const canDeleteCustom = !settings.autoAspectRatio && 
     !['16:9', '4:3', 'free'].includes(settings.manualAspectRatio) &&
     settings.customRatios.some(cr => cr.id === settings.manualAspectRatio);

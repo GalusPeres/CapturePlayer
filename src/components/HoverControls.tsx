@@ -22,9 +22,10 @@ type Props = {
   alwaysOnTop: boolean;
   visible: boolean;
   isFullscreen: boolean;
+  canStart?: boolean;
 };
 
-export default function HoverControls({
+const HoverControls = React.memo(function HoverControls({
   running,
   onToggle,
   onFullscreen,
@@ -34,6 +35,7 @@ export default function HoverControls({
   alwaysOnTop,
   visible,
   isFullscreen,
+  canStart = true,
 }: Props) {
   const animClass = visible ? 'animate-slide-up-fast' : 'animate-slide-down-fast';
 
@@ -88,14 +90,16 @@ export default function HoverControls({
       {/* Play / Stop */}
       <HudButton
         icon={running ? stopIcon : playArrow}
-        tooltip={running ? 'Stop Capture' : 'Start Capture'}
+        tooltip={running ? 'Stop Capture' : canStart ? 'Start Capture' : 'No devices selected'}
         onClick={onToggle}
         positionClass={`absolute bottom-6 no-drag ${animClass}`}
         style={{ right: rightPx(rightIndex('play')) }}
         visible={visible}
         variant="green"
         active={running}
+        disabled={!canStart && !running}
         iconSize="large"
+        key={running ? 'stop' : 'play'} // Force re-render for instant icon change
       />
 
       {/* Fullscreen */}
@@ -146,4 +150,6 @@ export default function HoverControls({
       />
     </>
   );
-}
+});
+
+export default HoverControls;

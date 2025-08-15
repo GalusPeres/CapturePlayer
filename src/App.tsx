@@ -32,6 +32,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const timeoutRef                      = useRef<number>();
   const processingTimeoutRef            = useRef<number>();
@@ -39,16 +40,38 @@ export default function App() {
 
   // Signal info (Resolution + FPS)
   const [resolution, setResolution] = useState<{ w: number, h: number, fps?: number } | null>(null);
+  
+  // Current device selection (may differ from saved settings)
+  const [currentVideoDevice, setCurrentVideoDevice] = useState(settings.videoDevice);
+  const [currentAudioDevice, setCurrentAudioDevice] = useState(settings.audioDevice);
+  
+  // Currently active devices in the running stream (for Apply button logic)
+  const [activeVideoDevice, setActiveVideoDevice] = useState(settings.videoDevice);
+  const [activeAudioDevice, setActiveAudioDevice] = useState(settings.audioDevice);
+  
+  // Update current devices when settings change
+  useEffect(() => {
+    setCurrentVideoDevice(settings.videoDevice);
+    setCurrentAudioDevice(settings.audioDevice);
+  }, [settings.videoDevice, settings.audioDevice]);
 
   useEffect(() => {
     window.electronAPI.isAlwaysOnTop().then(setAlwaysOnTop);
     // Force reset zoom indicator on app start
     setShowZoomIndicator(false);
     
-    // Autostart with devices if enabled
-    if (settings.autostartWithDevices && settings.videoDevice && !running) {
+    // Autostart with devices if enabled and at least one device is selected
+    if (settings.autostartWithDevices && !running && 
+        !(settings.videoDevice === '' && settings.audioDevice === '')) {
       console.log('🚀 Autostarting with saved devices...');
-      handleToggle();
+      // Add delay to ensure cleanup is complete
+      setTimeout(() => {
+        handleToggle();
+        setIsInitializing(false);
+      }, 500);
+    } else {
+      // No autostart, show UI immediately
+      setIsInitializing(false);
     }
     
     // Cleanup zoom timeout only on unmount
@@ -74,13 +97,14 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [alwaysOnTop]);
 
-  // Reset cursor hide timer on any activity
+  // Reset cursor hide timer on any activity - only when running
   const resetCursorTimer = useCallback(() => {
+    if (!running) return;
     setHideCursor(false);
     setMouseInside(true);
     clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => setHideCursor(true), 5000);
-  }, []);
+  }, [running]);
 
   // Handle zoom with Ctrl+Mouse Wheel
   const handleZoom = useCallback((e: WheelEvent) => {
@@ -97,12 +121,12 @@ export default function App() {
         settings.setZoomLevel(newZoom);
       }
       
-      // Show zoom indicator for 3 seconds
+      // Show zoom indicator for 2 seconds (reduced from 3)
       setShowZoomIndicator(true);
       clearTimeout(zoomIndicatorTimeoutRef.current);
       zoomIndicatorTimeoutRef.current = window.setTimeout(() => {
         setShowZoomIndicator(false);
-      }, 3000);
+      }, 2000);
     }
   }, [settings, isFullscreen, fullscreenZoom]);
 
@@ -110,15 +134,21 @@ export default function App() {
     const onMove = resetCursorTimer;
     const onClick = resetCursorTimer;
     const onLeave = () => {
+      if (!running) return;
       setHideCursor(true);
       setMouseInside(false);
     };
     
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('click', onClick);
-    window.addEventListener('mouseleave', onLeave);
+    // Only add mouse listeners when running
+    if (running) {
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('click', onClick);
+      window.addEventListener('mouseleave', onLeave);
+      resetCursorTimer();
+    }
+    
+    // Always listen for zoom (works regardless of running state)
     window.addEventListener('wheel', handleZoom, { passive: false });
-    resetCursorTimer();
     
     return () => {
       window.removeEventListener('mousemove', onMove);
@@ -127,9 +157,8 @@ export default function App() {
       window.removeEventListener('wheel', handleZoom);
       clearTimeout(timeoutRef.current);
       clearTimeout(processingTimeoutRef.current);
-      // DON'T clear zoomIndicatorTimeoutRef here - it breaks the 3s timeout!
     };
-  }, [resetCursorTimer, handleZoom]);
+  }, [resetCursorTimer, handleZoom, running]);
 
   // Safety timeout for processing state
   const setProcessingWithTimeout = (processing: boolean) => {
@@ -158,11 +187,14 @@ export default function App() {
 
     try {
       if (running) {
-        setRunning(false);
         await stop();
+        setRunning(false);
         console.log('✅ Capture stopped successfully');
       } else {
-        await start();
+        // When starting, use current device selection and update active devices
+        await start({ videoDevice: currentVideoDevice, audioDevice: currentAudioDevice });
+        setActiveVideoDevice(currentVideoDevice);
+        setActiveAudioDevice(currentAudioDevice);
         setRunning(true);
         console.log('✅ Capture started successfully');
       }
@@ -213,23 +245,25 @@ export default function App() {
         console.log('⏹️ Stopping current capture...');
         setRunning(false);
         await stop();
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
       console.log('💾 Updating settings...');
+      
+      // Check if devices changed BEFORE updating settings
+      const devicesChanged = videoDev !== settings.videoDevice || audioDev !== settings.audioDevice;
+      
       settings.setVideoDevice(videoDev);
       settings.setAudioDevice(audioDev);
       
-      // Disable autostart if devices changed
-      if (settings.autostartWithDevices && (videoDev !== settings.videoDevice || audioDev !== settings.audioDevice)) {
-        console.log('🔄 Devices changed - disabling autostart');
-        settings.setAutostartWithDevices(false);
-      }
+      // Note: Autostart stays enabled even if devices change
       
       await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log('▶️ Starting capture with new devices...');
       await start({ videoDevice: videoDev, audioDevice: audioDev });
+      setActiveVideoDevice(videoDev);
+      setActiveAudioDevice(audioDev);
       setRunning(true);
       
       console.log('✅ Device switch successful!');
@@ -291,6 +325,9 @@ export default function App() {
         setResolution={setResolution}
         zoomLevel={isFullscreen ? fullscreenZoom : settings.zoomLevel}
         isFullscreen={isFullscreen}
+        running={running}
+        isProcessing={isProcessing}
+        isInitializing={isInitializing}
       />
 
       {/* Zoom Indicator - Top Right - Always shows for 3s when zooming */}
@@ -319,6 +356,7 @@ export default function App() {
         alwaysOnTop={alwaysOnTop}
         visible={!hideControls}
         isFullscreen={isFullscreen}
+        canStart={!(currentVideoDevice === '' && currentAudioDevice === '')}
       />
 
       <SettingsModal
@@ -331,6 +369,12 @@ export default function App() {
         isFullscreen={isFullscreen}
         fullscreenZoom={fullscreenZoom}
         setFullscreenZoom={setFullscreenZoom}
+        onDeviceSelectionChange={(video, audio) => {
+          setCurrentVideoDevice(video);
+          setCurrentAudioDevice(audio);
+        }}
+        activeVideoDevice={activeVideoDevice}
+        activeAudioDevice={activeAudioDevice}
       />
     </div>
   );
