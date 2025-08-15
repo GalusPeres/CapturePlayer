@@ -34,7 +34,8 @@ CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing 
 - Perfect for gaming without distractions
 
 ### Performance
-- Same low latency as OBS
+- Optimized low latency video processing
+- GPU-accelerated rendering pipeline
 - Synchronized audio and video
 - Lightweight on system resources
 
