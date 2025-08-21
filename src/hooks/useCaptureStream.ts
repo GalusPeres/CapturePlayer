@@ -104,26 +104,65 @@ export function useCaptureStream() {
         const audioDev = overrides.audioDevice ?? settings.audioDevice;
 
         console.log('🎥 Using devices:', { video: videoDev, audio: audioDev });
+        console.log('🔍 videoDev type:', typeof videoDev, 'starts with screen:', videoDev?.startsWith?.('screen:'));
 
-        // MediaStream constraints
-        const constraints: any = {
-          video: videoDev === '' 
-            ? false  // No video when empty string
-            : videoDev
-              ? { deviceId: { exact: videoDev } }
-              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-          audio: audioDev === ''
-            ? false  // No audio when empty string
-            : {
-                ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
-                sampleRate:       48000,
-                channelCount:     2,
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl:  false,
-                latency:          0,
-              },
-        };
+        // MediaStream constraints - handle screen capture vs normal devices
+        let constraints: any;
+        
+        if (videoDev && videoDev.startsWith('screen:')) {
+          // Screen capture mode - back to working state
+          const screenId = videoDev.replace('screen:', '');
+          constraints = {
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: screenId,
+                maxWidth: 4096,
+                maxHeight: 2160,
+                maxFrameRate: 120
+              }
+            },
+            audio: audioDev === '' 
+              ? false
+              : audioDev === 'system'
+                ? {
+                    mandatory: {
+                      chromeMediaSource: 'system' // System audio loopback
+                    }
+                  }
+                : {
+                    deviceId: { exact: audioDev },
+                    sampleRate: 48000,
+                    channelCount: 2,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    latency: 0,
+                  },
+          };
+        } else {
+          // Normal camera/mic mode
+          constraints = {
+            video: videoDev === '' 
+              ? false  // No video when empty string
+              : videoDev
+                ? { deviceId: { exact: videoDev } }
+                : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+            audio: audioDev === ''
+              ? false  // No audio when empty string
+              : audioDev === 'system'
+                ? false  // System audio only works with screen capture
+                : {
+                    ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
+                    sampleRate:       48000,
+                    channelCount:     2,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl:  false,
+                    latency:          0,
+                  },
+          };
+        }
 
         // 1) Get MediaStream
         const media = await navigator.mediaDevices.getUserMedia(constraints);
@@ -134,32 +173,47 @@ export function useCaptureStream() {
 
         // 3) Set up AudioContext + GainNode (with error handling)
         try {
-          const ac = new AudioContext({ 
-            latencyHint: 'interactive',
-            sampleRate: 48000 
-          });
-          
-          console.log('🔊 Created AudioContext, state:', ac.state);
-          
-          audioCtxRef.current = ac;
-          const src = ac.createMediaStreamSource(media);
-          sourceRef.current = src;
-          
-          const gain = ac.createGain();
-          gain.gain.value = settings.volume / 100;
-          gainRef.current = gain;
-          
-          // Connect audio graph
-          src.connect(gain);
-          gain.connect(ac.destination);
-          
-          // Resume AudioContext if suspended
-          if (ac.state === 'suspended') {
-            console.log('🎵 Resuming suspended AudioContext...');
-            await ac.resume();
+          // Check if we have audio tracks
+          const audioTracks = media.getAudioTracks();
+          if (audioTracks.length > 0) {
+            const ac = new AudioContext({ 
+              latencyHint: 'interactive',
+              sampleRate: 48000 
+            });
+            
+            console.log('🔊 Created AudioContext, state:', ac.state);
+            
+            audioCtxRef.current = ac;
+            const src = ac.createMediaStreamSource(media);
+            sourceRef.current = src;
+            
+            const gain = ac.createGain();
+            gain.gain.value = settings.volume / 100;
+            gainRef.current = gain;
+            
+            // Connect audio with proper monitoring control
+            src.connect(gain);
+            const isSystemAudio = audioDev === 'system';
+            
+            if (!isSystemAudio) {
+              // Microphone - normal monitoring
+              gain.connect(ac.destination);
+              console.log('🎤 Microphone monitoring enabled');
+            } else {
+              // System audio - no monitoring (silent)
+              console.log('🔊 System audio - no monitoring');
+            }
+            
+            // Resume AudioContext if suspended
+            if (ac.state === 'suspended') {
+              console.log('🎵 Resuming suspended AudioContext...');
+              await ac.resume();
+            }
+            
+            console.log('✅ Audio setup complete, final state:', ac.state);
+          } else {
+            console.log('ℹ️ No audio tracks found, skipping audio setup');
           }
-          
-          console.log('✅ Audio setup complete, final state:', ac.state);
         } catch (audioError) {
           console.error('❌ Audio setup failed:', audioError);
           // Audio errors should not crash the entire stream

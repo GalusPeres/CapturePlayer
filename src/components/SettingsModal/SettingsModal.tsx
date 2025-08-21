@@ -90,11 +90,30 @@ export default function SettingsModal({
   if (!visible) return null;
 
   return (
-    <div 
-      className={`fixed inset-0 flex items-center justify-center z-50`} 
-      onClick={onClose} 
-      style={{ pointerEvents: 'auto' }}
-    >
+    <>
+      <style>
+        {`
+          .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+          .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #52525b;
+            border-radius: 2px;
+          }
+          .custom-scroll {
+            scrollbar-gutter: stable;
+          }
+        `}
+      </style>
+      <div 
+        className={`fixed inset-0 flex items-center justify-center z-50`} 
+        onClick={onClose} 
+        style={{ pointerEvents: 'auto' }}
+      >
       <div
         className={`
           bg-gradient-to-br from-blue-900/70 to-green-900/70
@@ -219,7 +238,7 @@ export default function SettingsModal({
         </div>
 
         {/* Tab Content - Expanded */}
-        <div className="p-6 flex-1 overflow-auto text-white space-y-5 scrollbar-thin bg-zinc-900/75">
+        <div className="p-6 flex-1 overflow-auto text-white space-y-5 custom-scroll bg-zinc-900/75">
           {tab === 'devices' ? (
             <BasicTab
               localVideo={localVideo}
@@ -374,5 +393,6 @@ export default function SettingsModal({
         </div>
       </div>
     </div>
+    </>
   );
 }

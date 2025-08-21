@@ -54,6 +54,9 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('max-active-webgl-contexts', '16');
 
+// System audio capture
+app.commandLine.appendSwitch('enable-experimental-web-platform-features');
+
 app.whenReady().then(createMainWindow);
 
 app.on('window-all-closed', () => {

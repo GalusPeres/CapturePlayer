@@ -15,6 +15,8 @@ declare global {
       closeApp:          () => void;
       setAspectRatio?:   (ratio: number | null) => void;
       openExternal?:     (url: string) => Promise<{ success: boolean; error?: string }>;
+      getScreenSources:  () => Promise<Array<{ id: string; name: string; display_id: string; thumbnail: string | null }>>;
+      getDisplayInfo:    () => Promise<Array<{ id: number; bounds: any; workArea: any; size: any; workAreaSize: any; scaleFactor: number; rotation: number; touchSupport: string; accelerometerSupport: string; monochrome: boolean; colorDepth: number; colorSpace: string; displayFrequency: number }>>;
     };
   }
 }

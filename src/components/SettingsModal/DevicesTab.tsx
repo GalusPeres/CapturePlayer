@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { SimpleSelectOption, SimpleSelect } from '../SimpleSelect';
+import AdvancedSelect, { AdvancedSelectOption } from '../AdvancedSelect';
 
 type SignalInfo = { w: number, h: number, fps?: number } | null;
 
@@ -23,6 +24,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
   
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [screenSources, setScreenSources] = useState<Array<{id: string, name: string, thumbnail: string | null}>>([]);
 
   // Device detection on component mount
   useEffect(() => {
@@ -38,25 +40,53 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
         setAudioDevices(devices.filter((d) => d.kind === 'audioinput'));
       })
       .catch(console.error);
+    
+    // Get screen sources
+    window.electronAPI.getScreenSources()
+      .then((sources) => {
+        const formattedSources = sources.map(source => ({ 
+          id: source.id, 
+          name: source.name,
+          thumbnail: source.thumbnail
+        }));
+        setScreenSources(formattedSources);
+      })
+      .catch(console.error);
   }, []);
 
-  // Filter and format video devices for dropdown
-  const filteredVideo = useMemo<SimpleSelectOption[]>(
-    () => {
-      const devices = videoDevices
-        .filter((d) => !/^Default\b/i.test(d.label || ''))
-        .map((d, i) => ({
-          value: d.deviceId,
-          label: cleanLabel(d.label || `Camera ${i + 1}`),
-        }));
-      
-      return [
-        { value: '', label: 'No video device' },
-        ...devices
-      ];
-    },
-    [videoDevices]
-  );
+  // Create options for AdvancedSelect
+  const videoSourceOptions: AdvancedSelectOption[] = useMemo(() => {
+    const options: AdvancedSelectOption[] = [];
+    
+    // No video option
+    options.push({
+      value: '',
+      label: 'No video device',
+      category: 'devices'
+    });
+    
+    // Camera devices
+    videoDevices.forEach((device, i) => {
+      options.push({
+        value: device.deviceId,
+        label: cleanLabel(device.label || `Camera ${i + 1}`),
+        category: 'devices'
+      });
+    });
+    
+    // Screen sources
+    screenSources.forEach((source) => {
+      const category = source.id.startsWith('screen:') ? 'screens' : 'apps';
+      options.push({
+        value: `screen:${source.id}`,
+        label: source.name,
+        thumbnail: source.thumbnail,
+        category: category as 'screens' | 'apps'
+      });
+    });
+    
+    return options;
+  }, [videoDevices, screenSources]);
 
   // Filter and format audio devices for dropdown
   const filteredAudio = useMemo<SimpleSelectOption[]>(
@@ -70,6 +100,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
       
       return [
         { value: '', label: 'No audio device' },
+        { value: 'system', label: 'System Audio (experimental)' },
         ...devices
       ];
     },
@@ -85,7 +116,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
       {/* Video Device Selection */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label>Video Device:</label>
+          <label>Video:</label>
           {signalTxt && (
             <span className="
               inline-block px-1.5 py-0.5
@@ -98,19 +129,31 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
             </span>
           )}
         </div>
-        <SimpleSelect
-          options={filteredVideo}
+        <AdvancedSelect
+          options={videoSourceOptions}
           value={localVideo}
           onChange={(value) => {
             setLocalVideo(value);
-            settings.setVideoDevice(value); // Sofort speichern
+            settings.setVideoDevice(value);
+          }}
+          getSelectedLabel={(value, options) => {
+            if (value === '') return 'No video device';
+            
+            if (value.startsWith('screen:')) {
+              const screenId = value.replace('screen:', '');
+              const source = screenSources.find(s => s.id === screenId);
+              return source ? source.name : 'Screen source';
+            }
+            
+            const device = videoDevices.find(d => d.deviceId === value);
+            return device ? cleanLabel(device.label || 'Camera') : 'Camera device';
           }}
         />
       </div>
 
       {/* Audio Device Selection */}
       <div>
-        <label className="block mb-1">Audio Device:</label>
+        <label className="block mb-1">Audio:</label>
         <SimpleSelect
           options={filteredAudio}
           value={localAudio}

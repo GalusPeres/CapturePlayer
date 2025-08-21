@@ -35,15 +35,18 @@ export function SimpleSelect({
       <style>
         {`
           .custom-scroll::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 4px;
+            height: 4px;
           }
           .custom-scroll::-webkit-scrollbar-track {
-            background: #27272a;
+            background: transparent;
           }
           .custom-scroll::-webkit-scrollbar-thumb {
             background-color: #52525b;
-            border-radius: 3px;
+            border-radius: 2px;
+          }
+          .custom-scroll {
+            scrollbar-gutter: stable;
           }
         `}
       </style>
@@ -64,7 +67,7 @@ export function SimpleSelect({
         <ul
           className="
             absolute z-10 mt-1 w-full bg-zinc-900 border border-zinc-700
-            rounded max-h-48 overflow-auto text-sm leading-tight
+            rounded max-h-40 overflow-auto text-sm leading-tight
             custom-scroll
           "
         >
@@ -77,7 +80,7 @@ export function SimpleSelect({
               }}
               title={o.label}
               className={`
-                px-3 py-1 cursor-pointer
+                mx-1 px-3 py-1 cursor-pointer rounded-sm
                 ${o.value === value
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                   : 'text-zinc-200 hover:bg-zinc-700 hover:text-white'}
