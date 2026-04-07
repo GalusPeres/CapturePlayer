@@ -58,45 +58,65 @@ const VideoCanvas: React.FC<Props> = ({
     return `url(#${filterId})`;
   };
 
-  // Measure video resolution and frame rate - only when stream changes (not continuous)
+  // Measure video resolution and frame rate while the stream is running.
+  // This lets auto-aspect react to live signal changes without forcing a restart.
   useEffect(() => {
-    if (!videoRef.current || !stream) {
+    const video = videoRef.current;
+    if (!video || !stream) {
       setResolution?.(null);
       return;
     }
 
     let isActive = true;
+    let lastSignature: string | null = null;
 
-    function measureVideoInfo() {
+    const updateResolution = (next: { w: number; h: number; fps?: number } | null) => {
+      const signature = next ? `${next.w}x${next.h}@${next.fps ?? 0}` : 'null';
+      if (signature !== lastSignature) {
+        lastSignature = signature;
+        setResolution?.(next);
+      }
+    };
+
+    const measureVideoInfo = () => {
       if (!isActive) return;
 
-      const video = videoRef.current;
-      if (!video || !video.srcObject) {
-        setResolution?.(null);
+      const track = stream.getVideoTracks()[0];
+      if (!track || track.readyState !== 'live') {
+        updateResolution(null);
         return;
       }
 
-      const track = (video.srcObject as MediaStream | null)?.getVideoTracks?.()?.[0];
-      if (track && track.readyState === 'live') {
-        const trackSettings = track.getSettings?.();
-        let fps: number | undefined;
-        if (trackSettings?.frameRate) fps = Math.round(trackSettings.frameRate);
-        if (trackSettings?.width && trackSettings?.height) {
-          setResolution?.({ w: trackSettings.width, h: trackSettings.height, fps });
-        } else {
-          setResolution?.(null);
-        }
-      } else {
-        setResolution?.(null);
-      }
-    }
+      const trackSettings = track.getSettings?.();
+      const fps = trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : undefined;
+      const width = video.videoWidth || trackSettings?.width;
+      const height = video.videoHeight || trackSettings?.height;
 
-    // Single measurement when stream changes - no continuous polling
-    const timeoutId = setTimeout(measureVideoInfo, 200);
+      if (width && height) {
+        updateResolution({ w: width, h: height, fps });
+      } else {
+        updateResolution(null);
+      }
+    };
+
+    const onMetadata = () => measureVideoInfo();
+    const onResize = () => measureVideoInfo();
+
+    video.addEventListener('loadedmetadata', onMetadata);
+    video.addEventListener('resize', onResize);
+
+    // Initial check plus lightweight fallback polling in case the backend does
+    // not emit a resize event when the capture signal changes.
+    measureVideoInfo();
+    const timeoutId = window.setTimeout(measureVideoInfo, 200);
+    const intervalId = window.setInterval(measureVideoInfo, 750);
 
     return () => {
       isActive = false;
+      video.removeEventListener('loadedmetadata', onMetadata);
+      video.removeEventListener('resize', onResize);
       clearTimeout(timeoutId);
+      clearInterval(intervalId);
     };
   }, [setResolution, stream]);
 
