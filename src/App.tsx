@@ -39,6 +39,9 @@ export default function App() {
   const timeoutRef = useRef<number>();
   const processingTimeoutRef = useRef<number>();
   const zoomIndicatorTimeoutRef = useRef<number>();
+  const cursorRafRef = useRef<number | null>(null);
+  const hideCursorRef = useRef(false);
+  const mouseInsideRef = useRef(true);
 
   // Signal info (Resolution + FPS)
   const [resolution, setResolution] = useState<{ w: number; h: number; fps?: number } | null>(null);
@@ -50,6 +53,14 @@ export default function App() {
   // Currently active devices in the running stream (for Apply button logic)
   const [activeVideoDevice, setActiveVideoDevice] = useState(settings.videoDevice);
   const [activeAudioDevice, setActiveAudioDevice] = useState(settings.audioDevice);
+
+  useEffect(() => {
+    hideCursorRef.current = hideCursor;
+  }, [hideCursor]);
+
+  useEffect(() => {
+    mouseInsideRef.current = mouseInside;
+  }, [mouseInside]);
 
   // Update current devices when settings change
   useEffect(() => {
@@ -101,10 +112,48 @@ export default function App() {
   // Reset cursor hide timer on any activity - only when running
   const resetCursorTimer = useCallback(() => {
     if (!running) return;
-    setHideCursor(false);
-    setMouseInside(true);
+
+    if (hideCursorRef.current) {
+      hideCursorRef.current = false;
+      setHideCursor(false);
+    }
+
+    if (!mouseInsideRef.current) {
+      mouseInsideRef.current = true;
+      setMouseInside(true);
+    }
+
     clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => setHideCursor(true), 5000);
+    timeoutRef.current = window.setTimeout(() => {
+      hideCursorRef.current = true;
+      setHideCursor(true);
+    }, 5000);
+  }, [running]);
+
+  const handlePointerEnter = useCallback(() => {
+    if (!mouseInsideRef.current) {
+      mouseInsideRef.current = true;
+      setMouseInside(true);
+    }
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (!running) return;
+
+    if (cursorRafRef.current !== null) {
+      window.cancelAnimationFrame(cursorRafRef.current);
+      cursorRafRef.current = null;
+    }
+
+    if (!hideCursorRef.current) {
+      hideCursorRef.current = true;
+      setHideCursor(true);
+    }
+
+    if (mouseInsideRef.current) {
+      mouseInsideRef.current = false;
+      setMouseInside(false);
+    }
   }, [running]);
 
   // Handle zoom with Ctrl+Mouse Wheel
@@ -135,13 +184,15 @@ export default function App() {
   );
 
   useEffect(() => {
-    const onMove = resetCursorTimer;
-    const onClick = resetCursorTimer;
-    const onLeave = () => {
-      if (!running) return;
-      setHideCursor(true);
-      setMouseInside(false);
+    const onMove = () => {
+      if (cursorRafRef.current !== null) return;
+      cursorRafRef.current = window.requestAnimationFrame(() => {
+        cursorRafRef.current = null;
+        resetCursorTimer();
+      });
     };
+    const onClick = resetCursorTimer;
+    const onLeave = handlePointerLeave;
 
     // Only add mouse listeners when running
     if (running) {
@@ -159,10 +210,14 @@ export default function App() {
       window.removeEventListener('click', onClick);
       window.removeEventListener('mouseleave', onLeave);
       window.removeEventListener('wheel', handleZoom);
+      if (cursorRafRef.current !== null) {
+        window.cancelAnimationFrame(cursorRafRef.current);
+        cursorRafRef.current = null;
+      }
       clearTimeout(timeoutRef.current);
       clearTimeout(processingTimeoutRef.current);
     };
-  }, [resetCursorTimer, handleZoom, running]);
+  }, [resetCursorTimer, handleZoom, running, handlePointerLeave]);
 
   // Safety timeout for processing state
   const setProcessingWithTimeout = (processing: boolean) => {
@@ -179,7 +234,7 @@ export default function App() {
     }
   };
 
-  const handleToggle = async () => {
+  const handleToggle = useCallback(async () => {
     console.log(`🎯 Toggle clicked: ${running ? 'stopping' : 'starting'}`);
 
     if (isProcessing) {
@@ -208,9 +263,9 @@ export default function App() {
     } finally {
       setProcessingWithTimeout(false);
     }
-  };
+  }, [currentAudioDevice, currentVideoDevice, isProcessing, running, start, stop]);
 
-  const handleAlwaysOnTop = async () => {
+  const handleAlwaysOnTop = useCallback(async () => {
     // Block always-on-top in fullscreen mode
     if (isFullscreen) {
       console.log('⚠️ Always-on-top blocked in fullscreen mode');
@@ -224,67 +279,76 @@ export default function App() {
     } catch (error) {
       console.error('❌ Always-on-top toggle failed:', error);
     }
-  };
+  }, [isFullscreen]);
 
-  const handleFullscreen = () =>
-    document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  const handleFullscreen = useCallback(
+    () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()),
+    []
+  );
 
-  const handleClose = () => window.electronAPI.closeApp();
+  const handleClose = useCallback(() => window.electronAPI.closeApp(), []);
+
+  const handleOpenSettings = useCallback(() => {
+    setShowSettings(true);
+  }, []);
 
   // Apply device changes
-  const handleApplyDevices = async (videoDev: string, audioDev: string) => {
-    console.log('🔧 Applying new devices:', { video: videoDev, audio: audioDev });
+  const handleApplyDevices = useCallback(
+    async (videoDev: string, audioDev: string) => {
+      console.log('🔧 Applying new devices:', { video: videoDev, audio: audioDev });
 
-    if (isProcessing) {
-      console.log('⏳ Stream operation in progress, skipping device change...');
-      return;
-    }
-
-    setProcessingWithTimeout(true);
-
-    try {
-      if (running) {
-        console.log('⏹️ Stopping current capture...');
-        setRunning(false);
-        await stop();
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 300);
-        });
+      if (isProcessing) {
+        console.log('⏳ Stream operation in progress, skipping device change...');
+        return;
       }
 
-      console.log('💾 Updating settings...');
-
-      settings.setVideoDevice(videoDev);
-      settings.setAudioDevice(audioDev);
-
-      // Note: Autostart stays enabled even if devices change
-
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 100);
-      });
-
-      console.log('▶️ Starting capture with new devices...');
-      await start({ videoDevice: videoDev, audioDevice: audioDev });
-      setActiveVideoDevice(videoDev);
-      setActiveAudioDevice(audioDev);
-      setRunning(true);
-
-      console.log('✅ Device switch successful!');
-    } catch (error) {
-      console.error('❌ Device switch failed:', error);
+      setProcessingWithTimeout(true);
 
       try {
-        console.log('🔄 Attempting fallback to previous devices...');
-        await start();
+        if (running) {
+          console.log('⏹️ Stopping current capture...');
+          setRunning(false);
+          await stop();
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 300);
+          });
+        }
+
+        console.log('💾 Updating settings...');
+
+        settings.setVideoDevice(videoDev);
+        settings.setAudioDevice(audioDev);
+
+        // Note: Autostart stays enabled even if devices change
+
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 100);
+        });
+
+        console.log('▶️ Starting capture with new devices...');
+        await start({ videoDevice: videoDev, audioDevice: audioDev });
+        setActiveVideoDevice(videoDev);
+        setActiveAudioDevice(audioDev);
         setRunning(true);
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        setRunning(false);
+
+        console.log('✅ Device switch successful!');
+      } catch (error) {
+        console.error('❌ Device switch failed:', error);
+
+        try {
+          console.log('🔄 Attempting fallback to previous devices...');
+          await start();
+          setRunning(true);
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          setRunning(false);
+        }
+      } finally {
+        setProcessingWithTimeout(false);
       }
-    } finally {
-      setProcessingWithTimeout(false);
-    }
-  };
+    },
+    [isProcessing, running, settings, start, stop]
+  );
 
   const hideControls = !showSettings && running && (hideCursor || !mouseInside);
   const hideAppCursor = !showSettings && running && hideCursor;
@@ -329,8 +393,8 @@ export default function App() {
         w-screen h-screen bg-black relative select-none overflow-hidden
         ${hideAppCursor ? 'cursor-none' : ''}
       `}
-      onMouseEnter={() => setMouseInside(true)}
-      onMouseLeave={() => setMouseInside(false)}
+      onMouseEnter={handlePointerEnter}
+      onMouseLeave={handlePointerLeave}
     >
       <DragBar />
 
@@ -365,7 +429,7 @@ export default function App() {
         running={running}
         onToggle={handleToggle}
         onFullscreen={handleFullscreen}
-        onSettings={() => setShowSettings(true)}
+        onSettings={handleOpenSettings}
         onAlwaysOnTop={handleAlwaysOnTop}
         onClose={handleClose}
         alwaysOnTop={alwaysOnTop}

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import iconIco from '../../assets/icons/icon.ico';
 
 // App constants - could be imported from package.json later
-const APP_VERSION = '0.2.0';
+const APP_VERSION = '0.2.1';
 const APP_NAME = 'CapturePlayer';
 const GITHUB_URL = 'https://github.com/GalusPeres/CapturePlayer';
 const COFFEE_URL = 'https://ko-fi.com/galusperes'; // Replace with your Ko-fi/PayPal link
@@ -28,8 +28,8 @@ export default function AboutTab() {
       const response = await fetch('https://api.github.com/repos/GalusPeres/CapturePlayer/releases/latest');
       const data = await response.json();
 
-      const latestVersion = data.tag_name; // e.g. "v0.2.0"
-      const currentVersion = `v${APP_VERSION}`; // e.g. "v0.2.0"
+      const latestVersion = data.tag_name; // e.g. "v0.2.1"
+      const currentVersion = `v${APP_VERSION}`; // e.g. "v0.2.1"
 
       if (latestVersion === currentVersion) {
         alert('You are running the latest version!');
