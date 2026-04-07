@@ -89,6 +89,8 @@ export function useCaptureStream() {
 
       console.log('▶️ Starting capture stream with overrides:', overrides);
       startingRef.current = true;
+      let pendingVideoMedia: MediaStream | null = null;
+      let pendingAudioMedia: MediaStream | null = null;
 
       try {
         // If stream is already running, stop it first and wait briefly
@@ -107,34 +109,72 @@ export function useCaptureStream() {
 
         console.log('🎥 Using devices:', { video: videoDev, audio: audioDev });
 
-        // MediaStream constraints
-        const constraints: any = {
-          video:
-            videoDev === ''
-              ? false // No video when empty string
-              : videoDev
-                ? { deviceId: { exact: videoDev } }
-                : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-          audio:
-            audioDev === ''
-              ? false // No audio when empty string
-              : {
-                  ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
-                  sampleRate: 48000,
-                  channelCount: 2,
-                  echoCancellation: false,
-                  noiseSuppression: false,
-                  autoGainControl: false,
-                  latency: 0
-                }
-        };
+        const videoConstraints =
+          videoDev === ''
+            ? false
+            : videoDev
+              ? { deviceId: { exact: videoDev } }
+              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } };
 
-        // 1) Get MediaStream
-        const media = await navigator.mediaDevices.getUserMedia(constraints);
+        const audioConstraints =
+          audioDev === ''
+            ? false
+            : {
+                ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
+                sampleRate: 48000,
+                channelCount: 2,
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                latency: 0
+              };
+
+        if (videoConstraints) {
+          pendingVideoMedia = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraints,
+            audio: false
+          });
+        }
+
+        if (audioConstraints) {
+          pendingAudioMedia = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: audioConstraints
+          });
+        }
+
+        const media = new MediaStream([
+          ...(pendingVideoMedia?.getVideoTracks() ?? []),
+          ...(pendingAudioMedia?.getAudioTracks() ?? [])
+        ]);
+
+        if (media.getTracks().length === 0) {
+          throw new Error('No media tracks available');
+        }
         console.log(
           '📡 Got media stream:',
           media.getTracks().map((t) => `${t.kind}: ${t.label}`)
         );
+
+        const videoTrack = media.getVideoTracks()[0];
+        if (videoTrack && 'contentHint' in videoTrack) {
+          try {
+            videoTrack.contentHint = 'motion';
+            console.log('ðŸŽ¬ Applied video contentHint:', videoTrack.contentHint);
+          } catch (hintError) {
+            console.warn('Failed to apply video contentHint:', hintError);
+          }
+        }
+
+        const audioTrack = media.getAudioTracks()[0];
+        if (audioTrack && 'contentHint' in audioTrack) {
+          try {
+            audioTrack.contentHint = 'music';
+            console.log('ðŸŽ§ Applied audio contentHint:', audioTrack.contentHint);
+          } catch (hintError) {
+            console.warn('Failed to apply audio contentHint:', hintError);
+          }
+        }
 
         // 2) Set stream state
         setStream(media);
@@ -142,7 +182,7 @@ export function useCaptureStream() {
         // 3) Set up AudioContext + GainNode (with error handling)
         try {
           const ac = new AudioContext({
-            latencyHint: 'interactive',
+            latencyHint: 0.005,
             sampleRate: 48000
           });
 
@@ -175,6 +215,8 @@ export function useCaptureStream() {
         return media;
       } catch (error) {
         console.error('❌ Capture stream start failed:', error);
+        pendingVideoMedia?.getTracks().forEach((track) => track.stop());
+        pendingAudioMedia?.getTracks().forEach((track) => track.stop());
         // Cleanup on error
         cleanup();
         setStream(null);
@@ -197,6 +239,27 @@ export function useCaptureStream() {
       }
     }
   }, [settings.volume]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !stream) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      const ac = audioCtxRef.current;
+      if (!ac) return;
+
+      window.electronAPI?.debugAudioStats?.({
+        state: ac.state,
+        sampleRate: ac.sampleRate,
+        currentTime: Number(ac.currentTime.toFixed(3)),
+        baseLatencyMs: Number((ac.baseLatency * 1000).toFixed(1)),
+        outputLatencyMs: typeof ac.outputLatency === 'number' ? Number((ac.outputLatency * 1000).toFixed(1)) : undefined
+      });
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [stream]);
 
   // Cleanup on unmount with memory management
   useEffect(() => {

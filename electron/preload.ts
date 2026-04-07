@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top'),
   closeApp: () => ipcRenderer.invoke('close-app'),
   setAspectRatio: (ratio: number | null) => ipcRenderer.invoke('set-aspect-ratio', ratio),
+  debugFrameStats: (payload: unknown) => ipcRenderer.send('debug-frame-stats', payload),
+  debugAudioStats: (payload: unknown) => ipcRenderer.send('debug-audio-stats', payload),
   // Open external links (GitHub, Ko-fi etc.)
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 });

@@ -25,6 +25,23 @@ type VideoDebugInfo = {
   stallCount: number;
   presentedFrames: number;
   stalled: boolean;
+  captureDelayMs?: number;
+  maxCaptureDelayMs?: number;
+};
+
+type FrameStatsPayload = {
+  width: number;
+  height: number;
+  trackFps?: number;
+  displayFps: number;
+  lastFrameMs: number;
+  maxFrameMs: number;
+  idleMs: number;
+  stallCount: number;
+  presentedFrames: number;
+  stalled: boolean;
+  captureDelayMs?: number;
+  maxCaptureDelayMs?: number;
 };
 
 const VideoCanvas: React.FC<Props> = ({
@@ -157,6 +174,9 @@ const VideoCanvas: React.FC<Props> = ({
     let maxFrameMs = 0;
     let stallCount = 0;
     let presentedFrames = 0;
+    let captureDelayMs: number | undefined;
+    let maxCaptureDelayMs = 0;
+    let lastLoggedAt = 0;
 
     const publishStats = () => {
       if (cancelled) return;
@@ -170,7 +190,7 @@ const VideoCanvas: React.FC<Props> = ({
       const expectedFrameMs = trackFps ? 1000 / trackFps : 16.7;
       const stalled = idleMs > Math.max(50, expectedFrameMs * 2.5);
 
-      setDebugInfo({
+      const nextStats: FrameStatsPayload = {
         width: video.videoWidth || trackSettings?.width || 0,
         height: video.videoHeight || trackSettings?.height || 0,
         trackFps,
@@ -180,13 +200,30 @@ const VideoCanvas: React.FC<Props> = ({
         idleMs,
         stallCount,
         presentedFrames,
-        stalled
-      });
+        stalled,
+        captureDelayMs,
+        maxCaptureDelayMs: maxCaptureDelayMs || undefined
+      };
+
+      setDebugInfo(nextStats);
+
+      const shouldLog = stalled || performance.now() - lastLoggedAt >= 2000;
+      if (shouldLog) {
+        window.electronAPI.debugFrameStats?.({
+          ...nextStats,
+          displayFps: Number(nextStats.displayFps.toFixed(1)),
+          lastFrameMs: Number(nextStats.lastFrameMs.toFixed(1)),
+          maxFrameMs: Number(nextStats.maxFrameMs.toFixed(1)),
+          idleMs: Number(nextStats.idleMs.toFixed(1))
+        });
+        lastLoggedAt = performance.now();
+      }
 
       windowStart = performance.now();
       frameCount = 0;
       maxFrameMs = 0;
       stallCount = 0;
+      maxCaptureDelayMs = 0;
     };
 
     const onFrame: VideoFrameRequestCallback = (now, metadata) => {
@@ -204,6 +241,13 @@ const VideoCanvas: React.FC<Props> = ({
         if (lastFrameMs > Math.max(50, expectedFrameMs * 2.5)) {
           stallCount += 1;
         }
+      }
+
+      if (typeof metadata.captureTime === 'number') {
+        captureDelayMs = now - metadata.captureTime;
+        maxCaptureDelayMs = Math.max(maxCaptureDelayMs, captureDelayMs);
+      } else {
+        captureDelayMs = undefined;
       }
 
       lastFrameNow = now;
@@ -230,6 +274,7 @@ const VideoCanvas: React.FC<Props> = ({
     if (!video) return;
 
     let cancelled = false;
+    let assignedStream: MediaStream | null = null;
 
     const ensurePlayback = async () => {
       if (cancelled || !video.srcObject) return;
@@ -267,8 +312,14 @@ const VideoCanvas: React.FC<Props> = ({
     window.addEventListener('focus', onFocus);
 
     if (stream) {
-      video.srcObject = stream;
-      void ensurePlayback();
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        assignedStream = new MediaStream([videoTrack]);
+        video.srcObject = assignedStream;
+        void ensurePlayback();
+      } else {
+        video.srcObject = null;
+      }
     } else if (video.srcObject) {
       video.srcObject = null;
     }
@@ -280,7 +331,7 @@ const VideoCanvas: React.FC<Props> = ({
       video.removeEventListener('canplay', onCanPlay);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onFocus);
-      if (video.srcObject === stream) {
+      if (video.srcObject === assignedStream || (!assignedStream && !stream)) {
         video.srcObject = null;
       }
     };
@@ -354,6 +405,10 @@ const VideoCanvas: React.FC<Props> = ({
             <div>display: {debugInfo.displayFps.toFixed(1)} fps</div>
             <div>frame: {debugInfo.lastFrameMs.toFixed(1)} ms</div>
             <div>max gap: {debugInfo.maxFrameMs.toFixed(1)} ms</div>
+            {typeof debugInfo.captureDelayMs === 'number' && <div>delay: {debugInfo.captureDelayMs.toFixed(1)} ms</div>}
+            {typeof debugInfo.maxCaptureDelayMs === 'number' && (
+              <div>max delay: {debugInfo.maxCaptureDelayMs.toFixed(1)} ms</div>
+            )}
             <div>idle: {debugInfo.idleMs.toFixed(1)} ms</div>
             <div>stalls: {debugInfo.stallCount}</div>
             <div>state: {debugInfo.stalled ? 'stalled' : 'ok'}</div>

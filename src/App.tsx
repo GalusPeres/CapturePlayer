@@ -15,6 +15,8 @@ declare global {
       closeApp: () => void;
       setAspectRatio?: (ratio: number | null) => void;
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
+      debugFrameStats?: (payload: unknown) => void;
+      debugAudioStats?: (payload: unknown) => void;
     };
   }
 }

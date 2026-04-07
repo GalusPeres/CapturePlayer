@@ -4,6 +4,9 @@ import path from 'path';
 
 let mainWin: BrowserWindow | null = null;
 
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
 function createMainWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -64,6 +67,18 @@ ipcMain.handle('toggle-always-on-top', () => {
 // IPC Handler: Close application
 ipcMain.handle('close-app', () => {
   app.quit();
+});
+
+ipcMain.on('debug-frame-stats', (_event, payload: unknown) => {
+  if (!app.isPackaged) {
+    console.log('[frame-stats]', JSON.stringify(payload));
+  }
+});
+
+ipcMain.on('debug-audio-stats', (_event, payload: unknown) => {
+  if (!app.isPackaged) {
+    console.log('[audio-stats]', JSON.stringify(payload));
+  }
 });
 
 // IPC Handler: Set window aspect ratio
