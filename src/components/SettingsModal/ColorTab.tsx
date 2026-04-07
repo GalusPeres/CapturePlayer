@@ -5,7 +5,7 @@ import { useSettings } from '../../context/SettingsContext';
 // Base enhancement modes
 const baseEnhancementModes = [
   { value: 'off', label: 'Default', isCustom: false },
-  { value: 'enhanced', label: 'Enhanced', isCustom: false },
+  { value: 'enhanced', label: 'Enhanced', isCustom: false }
 ];
 
 // Enhancement presets
@@ -17,7 +17,7 @@ const getEnhancementPreset = (mode: string, settings: any) => {
         contrast: 115,
         saturation: 112,
         hue: 0,
-        sharpness: 145,
+        sharpness: 145
       };
     default: // 'off'
       return {
@@ -25,7 +25,7 @@ const getEnhancementPreset = (mode: string, settings: any) => {
         contrast: 100,
         saturation: 100,
         hue: 0,
-        sharpness: 100,
+        sharpness: 100
       };
   }
 };
@@ -36,36 +36,36 @@ const colorControls = [
     label: 'Brightness',
     min: 50,
     max: 200,
-    key: 'brightness' as const,
+    key: 'brightness' as const
   },
   {
     id: 'contrast',
     label: 'Contrast',
     min: 50,
     max: 300,
-    key: 'contrast' as const,
+    key: 'contrast' as const
   },
   {
     id: 'saturation',
     label: 'Saturation',
     min: 50,
     max: 400,
-    key: 'saturation' as const,
+    key: 'saturation' as const
   },
   {
     id: 'hue',
     label: 'Hue',
     min: -60,
     max: 60,
-    key: 'hue' as const,
+    key: 'hue' as const
   },
   {
     id: 'sharpness',
     label: 'Sharpness',
     min: 50,
     max: 200,
-    key: 'sharpness' as const,
-  },
+    key: 'sharpness' as const
+  }
 ];
 
 export function ColorTab() {
@@ -86,9 +86,9 @@ export function ColorTab() {
 
   // Apply custom profile
   const applyCustomProfile = (profileId: string) => {
-    const profile = settings.colorProfiles.find(p => p.id === profileId);
+    const profile = settings.colorProfiles.find((p) => p.id === profileId);
     if (!profile) return;
-    
+
     settings.setBrightness(profile.brightness);
     settings.setContrast(profile.contrast);
     settings.setSaturation(profile.saturation);
@@ -100,7 +100,7 @@ export function ColorTab() {
   // Create new custom profile
   const createCustomProfile = () => {
     if (settings.colorProfiles.length >= 4) return; // Max 4 custom profiles
-    
+
     const nextNumber = settings.colorProfiles.length + 1;
     const newProfile = {
       id: `custom${nextNumber}`,
@@ -109,16 +109,16 @@ export function ColorTab() {
       contrast: settings.contrast,
       saturation: settings.saturation,
       hue: settings.hue,
-      sharpness: settings.sharpness,
+      sharpness: settings.sharpness
     };
-    
+
     settings.setColorProfiles([...settings.colorProfiles, newProfile]);
     settings.setFsrMode(newProfile.id);
   };
 
   // Delete custom profile
   const deleteCustomProfile = (profileId: string) => {
-    settings.setColorProfiles(settings.colorProfiles.filter(p => p.id !== profileId));
+    settings.setColorProfiles(settings.colorProfiles.filter((p) => p.id !== profileId));
     if (settings.fsrMode === profileId) {
       settings.setFsrMode('off');
       applyEnhancementPreset('off');
@@ -133,45 +133,53 @@ export function ColorTab() {
         contrast: settings.contrast,
         saturation: settings.saturation,
         hue: settings.hue,
-        sharpness: settings.sharpness,
+        sharpness: settings.sharpness
       };
-      
+
       settings.setColorProfiles(
-        settings.colorProfiles.map(p => 
-          p.id === settings.fsrMode 
-            ? { ...p, ...currentValues }
-            : p
-        )
+        settings.colorProfiles.map((p) => (p.id === settings.fsrMode ? { ...p, ...currentValues } : p))
       );
     }
   };
 
   // Get current value by color control key
-  const getValueByKey = (key: typeof colorControls[0]['key']) => {
+  const getValueByKey = (key: (typeof colorControls)[0]['key']) => {
     switch (key) {
-      case 'brightness': return settings.brightness;
-      case 'contrast': return settings.contrast;
-      case 'saturation': return settings.saturation;
-      case 'hue': return settings.hue;
-      case 'sharpness': return settings.sharpness;
-      default: return 0;
+      case 'brightness':
+        return settings.brightness;
+      case 'contrast':
+        return settings.contrast;
+      case 'saturation':
+        return settings.saturation;
+      case 'hue':
+        return settings.hue;
+      case 'sharpness':
+        return settings.sharpness;
+      default:
+        return 0;
     }
   };
 
   // Get setter function by color control key
-  const getSetterByKey = (key: typeof colorControls[0]['key']) => {
+  const getSetterByKey = (key: (typeof colorControls)[0]['key']) => {
     switch (key) {
-      case 'brightness': return settings.setBrightness;
-      case 'contrast': return settings.setContrast;
-      case 'saturation': return settings.setSaturation;
-      case 'hue': return settings.setHue;
-      case 'sharpness': return settings.setSharpness;
-      default: return () => {};
+      case 'brightness':
+        return settings.setBrightness;
+      case 'contrast':
+        return settings.setContrast;
+      case 'saturation':
+        return settings.setSaturation;
+      case 'hue':
+        return settings.setHue;
+      case 'sharpness':
+        return settings.setSharpness;
+      default:
+        return () => {};
     }
   };
 
   // Enhanced setter that auto-saves custom profiles
-  const getEnhancedSetterByKey = (key: typeof colorControls[0]['key']) => {
+  const getEnhancedSetterByKey = (key: (typeof colorControls)[0]['key']) => {
     const originalSetter = getSetterByKey(key);
     return (value: number) => {
       originalSetter(value);
@@ -188,11 +196,7 @@ export function ColorTab() {
   const saveProfileName = () => {
     if (editingProfile && tempProfileName.trim()) {
       settings.setColorProfiles(
-        settings.colorProfiles.map(p => 
-          p.id === editingProfile 
-            ? { ...p, name: tempProfileName.trim() }
-            : p
-        )
+        settings.colorProfiles.map((p) => (p.id === editingProfile ? { ...p, name: tempProfileName.trim() } : p))
       );
     }
     setEditingProfile(null);
@@ -212,22 +216,18 @@ export function ColorTab() {
         contrast: 100,
         saturation: 100,
         hue: 0,
-        sharpness: 100,
+        sharpness: 100
       };
-      
+
       settings.setBrightness(defaultValues.brightness);
       settings.setContrast(defaultValues.contrast);
       settings.setSaturation(defaultValues.saturation);
       settings.setHue(defaultValues.hue);
       settings.setSharpness(defaultValues.sharpness);
-      
+
       // Also save to the profile
       settings.setColorProfiles(
-        settings.colorProfiles.map(p => 
-          p.id === settings.fsrMode 
-            ? { ...p, ...defaultValues }
-            : p
-        )
+        settings.colorProfiles.map((p) => (p.id === settings.fsrMode ? { ...p, ...defaultValues } : p))
       );
     }
   };
@@ -242,7 +242,7 @@ export function ColorTab() {
         <div className="mb-1">Color Presets:</div>
         <div className="flex flex-wrap gap-2">
           {/* Base profiles */}
-          {baseEnhancementModes.map(mode => (
+          {baseEnhancementModes.map((mode) => (
             <button
               key={mode.value}
               className={`px-3 py-1 rounded-full border text-sm ${
@@ -255,12 +255,12 @@ export function ColorTab() {
               {mode.label}
             </button>
           ))}
-          
+
           {/* Custom profiles */}
-          {settings.colorProfiles.map(profile => {
+          {settings.colorProfiles.map((profile) => {
             const isActive = settings.fsrMode === profile.id;
             const isEditing = editingProfile === profile.id;
-            
+
             if (isEditing) {
               return (
                 <div key={profile.id} className="flex items-center gap-1">
@@ -280,7 +280,7 @@ export function ColorTab() {
                 </div>
               );
             }
-            
+
             return (
               <button
                 key={profile.id}
@@ -297,13 +297,14 @@ export function ColorTab() {
               </button>
             );
           })}
-          
         </div>
-        
+
         {/* Info text */}
         <div className="mt-2">
           <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> You can <span className="text-white">doubleclick</span> on purple <span className="text-white">presets</span> to rename them. Everything is <span className="text-white">automatically saved</span>.
+            <span className="text-white">💡</span> You can <span className="text-white">doubleclick</span> on purple{' '}
+            <span className="text-white">presets</span> to rename them. Everything is{' '}
+            <span className="text-white">automatically saved</span>.
           </div>
         </div>
       </div>
@@ -313,7 +314,7 @@ export function ColorTab() {
         {colorControls.map(({ id, label, min, max, key }) => {
           const value = getValueByKey(key);
           const setter = getEnhancedSetterByKey(key);
-          
+
           return (
             <div key={id} className="flex items-center gap-3">
               <label className="w-20 shrink-0">{label}:</label>
@@ -328,7 +329,7 @@ export function ColorTab() {
                   settings.fsrMode === 'enhanced' ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
                 style={{
-                  ['--val' as any]: `${((value - min) / (max - min)) * 100}%`,
+                  ['--val' as any]: `${((value - min) / (max - min)) * 100}%`
                 }}
                 onInput={(e) => {
                   const val = Number((e.target as HTMLInputElement).value);
@@ -341,7 +342,6 @@ export function ColorTab() {
           );
         })}
       </div>
-
     </>
   );
 }
@@ -352,7 +352,7 @@ export function useColorTabActions() {
 
   const createCustomProfile = () => {
     if (settings.colorProfiles.length >= 4) return;
-    
+
     const nextNumber = settings.colorProfiles.length + 1;
     const newProfile = {
       id: `custom${nextNumber}`,
@@ -361,26 +361,26 @@ export function useColorTabActions() {
       contrast: settings.contrast,
       saturation: settings.saturation,
       hue: settings.hue,
-      sharpness: settings.sharpness,
+      sharpness: settings.sharpness
     };
-    
+
     settings.setColorProfiles([...settings.colorProfiles, newProfile]);
     settings.setFsrMode(newProfile.id);
   };
 
   const deleteCustomProfile = () => {
     if (!settings.fsrMode.startsWith('custom')) return;
-    
-    settings.setColorProfiles(settings.colorProfiles.filter(p => p.id !== settings.fsrMode));
+
+    settings.setColorProfiles(settings.colorProfiles.filter((p) => p.id !== settings.fsrMode));
     settings.setFsrMode('off');
-    
+
     // Reset to default values
     const defaultValues = {
       brightness: 100,
       contrast: 100,
       saturation: 100,
       hue: 0,
-      sharpness: 100,
+      sharpness: 100
     };
     settings.setBrightness(defaultValues.brightness);
     settings.setContrast(defaultValues.contrast);
@@ -391,28 +391,24 @@ export function useColorTabActions() {
 
   const resetCurrentProfile = () => {
     if (!settings.fsrMode.startsWith('custom')) return;
-    
+
     const defaultValues = {
       brightness: 100,
       contrast: 100,
       saturation: 100,
       hue: 0,
-      sharpness: 100,
+      sharpness: 100
     };
-    
+
     settings.setBrightness(defaultValues.brightness);
     settings.setContrast(defaultValues.contrast);
     settings.setSaturation(defaultValues.saturation);
     settings.setHue(defaultValues.hue);
     settings.setSharpness(defaultValues.sharpness);
-    
+
     // Also save to the profile
     settings.setColorProfiles(
-      settings.colorProfiles.map(p => 
-        p.id === settings.fsrMode 
-          ? { ...p, ...defaultValues }
-          : p
-      )
+      settings.colorProfiles.map((p) => (p.id === settings.fsrMode ? { ...p, ...defaultValues } : p))
     );
   };
 
@@ -424,9 +420,9 @@ export function useColorTabActions() {
         contrast: 100,
         saturation: 100,
         hue: 0,
-        sharpness: 100,
+        sharpness: 100
       };
-      
+
       settings.setBrightness(defaultValues.brightness);
       settings.setContrast(defaultValues.contrast);
       settings.setSaturation(defaultValues.saturation);

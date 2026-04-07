@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { SimpleSelectOption, SimpleSelect } from '../SimpleSelect';
 
-type SignalInfo = { w: number, h: number, fps?: number } | null;
+type SignalInfo = { w: number; h: number; fps?: number } | null;
 
 type Props = {
   localVideo: string;
@@ -20,7 +20,7 @@ function cleanLabel(label: string): string {
 
 export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLocalAudio, signalInfo }: Props) {
   const settings = useSettings();
-  
+
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
 
@@ -41,40 +41,28 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
   }, []);
 
   // Filter and format video devices for dropdown
-  const filteredVideo = useMemo<SimpleSelectOption[]>(
-    () => {
-      const devices = videoDevices
-        .filter((d) => !/^Default\b/i.test(d.label || ''))
-        .map((d, i) => ({
-          value: d.deviceId,
-          label: cleanLabel(d.label || `Camera ${i + 1}`),
-        }));
-      
-      return [
-        { value: '', label: 'No video device' },
-        ...devices
-      ];
-    },
-    [videoDevices]
-  );
+  const filteredVideo = useMemo<SimpleSelectOption[]>(() => {
+    const devices = videoDevices
+      .filter((d) => !/^Default\b/i.test(d.label || ''))
+      .map((d, i) => ({
+        value: d.deviceId,
+        label: cleanLabel(d.label || `Camera ${i + 1}`)
+      }));
+
+    return [{ value: '', label: 'No video device' }, ...devices];
+  }, [videoDevices]);
 
   // Filter and format audio devices for dropdown
-  const filteredAudio = useMemo<SimpleSelectOption[]>(
-    () => {
-      const devices = audioDevices
-        .filter((d) => !/^Default\b/i.test(d.label || ''))
-        .map((d, i) => ({
-          value: d.deviceId,
-          label: cleanLabel(d.label || `Microphone ${i + 1}`),
-        }));
-      
-      return [
-        { value: '', label: 'No audio device' },
-        ...devices
-      ];
-    },
-    [audioDevices]
-  );
+  const filteredAudio = useMemo<SimpleSelectOption[]>(() => {
+    const devices = audioDevices
+      .filter((d) => !/^Default\b/i.test(d.label || ''))
+      .map((d, i) => ({
+        value: d.deviceId,
+        label: cleanLabel(d.label || `Microphone ${i + 1}`)
+      }));
+
+    return [{ value: '', label: 'No audio device' }, ...devices];
+  }, [audioDevices]);
 
   // Format signal info display text
   let signalTxt = signalInfo?.w && signalInfo?.h ? `Source: ${signalInfo.w}×${signalInfo.h}` : '';
@@ -87,13 +75,15 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
         <div className="flex items-center justify-between mb-1">
           <label>Video Device:</label>
           {signalTxt && (
-            <span className="
+            <span
+              className="
               inline-block px-1.5 py-0.5
               border border-white/20
               rounded-md text-xs text-white/70
               font-mono tracking-wide
               ml-2
-            ">
+            "
+            >
               {signalTxt}
             </span>
           )}
@@ -139,7 +129,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
           // Initial value + brand color (can be set centrally)
           style={{
             ['--val' as any]: `${settings.volume}%`,
-            ['--brand' as any]: '#22c55e',
+            ['--brand' as any]: '#22c55e'
           }}
         />
         <span className="w-10 text-right shrink-0">{settings.volume}</span>
@@ -162,9 +152,10 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
             }}
             className={`
               w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
-              ${settings.autostartWithDevices 
-                ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500' 
-                : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
+              ${
+                settings.autostartWithDevices
+                  ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
+                  : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
               }
               focus:outline-none focus:ring-2 focus:ring-blue-500/50
             `}
@@ -175,7 +166,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
               </svg>
             )}
           </button>
-          <span 
+          <span
             onClick={() => settings.setAutostartWithDevices(!settings.autostartWithDevices)}
             className="text-sm text-white/90 cursor-pointer select-none"
           >

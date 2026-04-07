@@ -47,7 +47,7 @@ export default function HudButton({
   disabled = false,
   iconSize = 'normal',
   tooltipPlacement = 'top',
-  tooltipDelayMs = 700,
+  tooltipDelayMs = 700
 }: HudButtonProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +84,7 @@ export default function HudButton({
     red: 'bg-red-600/70 hover:bg-red-600/80 border border-red-500/30',
     blue: active
       ? 'bg-gradient-to-br from-purple-500/70 to-blue-600/70 hover:from-purple-500/80 hover:to-blue-600/80 border border-blue-500/30'
-      : 'bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30',
+      : 'bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30'
   };
 
   // Clear disabled look (darker, desaturated, no hover scale)
@@ -96,12 +96,12 @@ export default function HudButton({
   const cursorClass = disabled ? 'cursor-not-allowed' : 'cursor-pointer';
   const iconHoverScale = disabled ? '' : 'group-hover:scale-125';
   const iconDisabledStyle = disabled ? 'opacity-40 saturate-0' : '';
-  
+
   // Icon size classes
   const iconSizeClass = {
     small: 'w-5 h-5',
     normal: 'w-6 h-6',
-    large: 'w-8 h-8',
+    large: 'w-8 h-8'
   }[iconSize];
 
   return (
@@ -124,11 +124,7 @@ export default function HudButton({
         />
       </div>
 
-      <HudTooltip
-        visible={tipVisible && hover && visible}
-        targetRef={containerRef}
-        placement={tooltipPlacement}
-      >
+      <HudTooltip visible={tipVisible && hover && visible} targetRef={containerRef} placement={tooltipPlacement}>
         {tooltip}
       </HudTooltip>
     </>

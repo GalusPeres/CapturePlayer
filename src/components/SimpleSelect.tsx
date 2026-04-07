@@ -9,7 +9,7 @@ export type SimpleSelectOption = { value: string; label: string };
 export function SimpleSelect({
   options,
   value,
-  onChange,
+  onChange
 }: {
   options: SimpleSelectOption[];
   value: string;
@@ -78,9 +78,11 @@ export function SimpleSelect({
               title={o.label}
               className={`
                 px-3 py-1 cursor-pointer
-                ${o.value === value
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
-                  : 'text-zinc-200 hover:bg-zinc-700 hover:text-white'}
+                ${
+                  o.value === value
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
+                    : 'text-zinc-200 hover:bg-zinc-700 hover:text-white'
+                }
               `}
             >
               <span className="block truncate">{o.label}</span>

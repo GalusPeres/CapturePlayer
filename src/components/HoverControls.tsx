@@ -5,12 +5,12 @@
 import React from 'react';
 import HudButton from './HudButton';
 
-import playArrow  from '../assets/icons/play.png';
-import stopIcon   from '../assets/icons/stop.svg';
+import playArrow from '../assets/icons/play.png';
+import stopIcon from '../assets/icons/stop.svg';
 import fullscreen from '../assets/icons/fullscreen.svg';
-import settings   from '../assets/icons/settings.svg';
-import pinIcon    from '../assets/icons/pin.svg';
-import closeIcon  from '../assets/icons/close.svg';
+import settings from '../assets/icons/settings.svg';
+import pinIcon from '../assets/icons/pin.svg';
+import closeIcon from '../assets/icons/close.svg';
 
 type Props = {
   running: boolean;
@@ -35,7 +35,7 @@ const HoverControls = React.memo(function HoverControls({
   alwaysOnTop,
   visible,
   isFullscreen,
-  canStart = true,
+  canStart = true
 }: Props) {
   const animClass = visible ? 'animate-slide-up-fast' : 'animate-slide-down-fast';
 
@@ -46,24 +46,23 @@ const HoverControls = React.memo(function HoverControls({
   // Right-to-left order; Pin is hidden in fullscreen, Live is shown only when running
   // order indices (from right): close(0), pin(1), settings(2), fullscreen(3), play(4), live(5)
   const order: Array<
-    | { key: 'close'     ; show: boolean }
-    | { key: 'pin'       ; show: boolean }
-    | { key: 'settings'  ; show: boolean }
+    | { key: 'close'; show: boolean }
+    | { key: 'pin'; show: boolean }
+    | { key: 'settings'; show: boolean }
     | { key: 'fullscreen'; show: boolean }
-    | { key: 'play'      ; show: boolean }
-    | { key: 'live'      ; show: boolean }
+    | { key: 'play'; show: boolean }
+    | { key: 'live'; show: boolean }
   > = [
-    { key: 'close',      show: true },
-    { key: 'pin',        show: !isFullscreen }, // hide in fullscreen
-    { key: 'settings',   show: true },
+    { key: 'close', show: true },
+    { key: 'pin', show: !isFullscreen }, // hide in fullscreen
+    { key: 'settings', show: true },
     { key: 'fullscreen', show: true },
-    { key: 'play',       show: true },
-    { key: 'live',       show: running },
+    { key: 'play', show: true },
+    { key: 'live', show: running }
   ];
 
-  const visibleOrder = order.filter(o => o.show);
-  const rightIndex = (key: typeof order[number]['key']) =>
-    visibleOrder.findIndex(o => o.key === key);
+  const visibleOrder = order.filter((o) => o.show);
+  const rightIndex = (key: (typeof order)[number]['key']) => visibleOrder.findIndex((o) => o.key === key);
 
   return (
     <>
@@ -80,7 +79,7 @@ const HoverControls = React.memo(function HoverControls({
           `}
           style={{
             pointerEvents: visible ? 'auto' : 'none',
-            right: rightPx(rightIndex('live')),
+            right: rightPx(rightIndex('live'))
           }}
         >
           <span className="text-white text-sm">Live</span>

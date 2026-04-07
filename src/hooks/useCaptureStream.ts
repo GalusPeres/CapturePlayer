@@ -12,14 +12,14 @@ export function useCaptureStream() {
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef   = useRef<MediaStreamAudioSourceNode | null>(null);
-  const gainRef     = useRef<GainNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
   const startingRef = useRef<boolean>(false);
 
   // Improved cleanup function for audio resources
   const cleanup = useCallback(() => {
     // console.log('🧹 Cleaning up audio resources...');
-    
+
     // 1) First disconnect audio graph
     try {
       if (sourceRef.current) {
@@ -38,7 +38,7 @@ export function useCaptureStream() {
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
       const ctx = audioCtxRef.current;
       audioCtxRef.current = null;
-      
+
       // Wait briefly, then close
       setTimeout(() => {
         try {
@@ -52,16 +52,16 @@ export function useCaptureStream() {
 
   const stop = useCallback(() => {
     console.log('🛑 Stopping capture stream...');
-    
+
     // 1) Cache current stream reference
     const currentStream = stream;
-    
+
     // 2) Reset state immediately
     setStream(null);
-    
+
     // 3) Cleanup audio resources
     cleanup();
-    
+
     // 4) Stop all stream tracks (with small delay)
     setTimeout(() => {
       if (currentStream) {
@@ -86,17 +86,19 @@ export function useCaptureStream() {
         console.log('⚠️ Already starting, ignoring');
         return;
       }
-      
+
       console.log('▶️ Starting capture stream with overrides:', overrides);
       startingRef.current = true;
-      
+
       try {
         // If stream is already running, stop it first and wait briefly
         if (stream) {
           console.log('🔄 Stopping existing stream before starting new one...');
           stop();
           // Brief pause for clean transition
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 200);
+          });
         }
 
         // Device IDs from overrides or settings
@@ -107,58 +109,63 @@ export function useCaptureStream() {
 
         // MediaStream constraints
         const constraints: any = {
-          video: videoDev === '' 
-            ? false  // No video when empty string
-            : videoDev
-              ? { deviceId: { exact: videoDev } }
-              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-          audio: audioDev === ''
-            ? false  // No audio when empty string
-            : {
-                ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
-                sampleRate:       48000,
-                channelCount:     2,
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl:  false,
-                latency:          0,
-              },
+          video:
+            videoDev === ''
+              ? false // No video when empty string
+              : videoDev
+                ? { deviceId: { exact: videoDev } }
+                : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+          audio:
+            audioDev === ''
+              ? false // No audio when empty string
+              : {
+                  ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
+                  sampleRate: 48000,
+                  channelCount: 2,
+                  echoCancellation: false,
+                  noiseSuppression: false,
+                  autoGainControl: false,
+                  latency: 0
+                }
         };
 
         // 1) Get MediaStream
         const media = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log('📡 Got media stream:', media.getTracks().map(t => `${t.kind}: ${t.label}`));
-        
+        console.log(
+          '📡 Got media stream:',
+          media.getTracks().map((t) => `${t.kind}: ${t.label}`)
+        );
+
         // 2) Set stream state
         setStream(media);
 
         // 3) Set up AudioContext + GainNode (with error handling)
         try {
-          const ac = new AudioContext({ 
+          const ac = new AudioContext({
             latencyHint: 'interactive',
-            sampleRate: 48000 
+            sampleRate: 48000
           });
-          
+
           console.log('🔊 Created AudioContext, state:', ac.state);
-          
+
           audioCtxRef.current = ac;
           const src = ac.createMediaStreamSource(media);
           sourceRef.current = src;
-          
+
           const gain = ac.createGain();
           gain.gain.value = settings.volume / 100;
           gainRef.current = gain;
-          
+
           // Connect audio graph
           src.connect(gain);
           gain.connect(ac.destination);
-          
+
           // Resume AudioContext if suspended
           if (ac.state === 'suspended') {
             console.log('🎵 Resuming suspended AudioContext...');
             await ac.resume();
           }
-          
+
           console.log('✅ Audio setup complete, final state:', ac.state);
         } catch (audioError) {
           console.error('❌ Audio setup failed:', audioError);
@@ -196,7 +203,7 @@ export function useCaptureStream() {
     return () => {
       // console.log('🧹 Component unmounting, cleaning up...');
       cleanup();
-      
+
       // Force garbage collection if available (dev only)
       if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && (window as any).gc) {
         (window as any).gc();

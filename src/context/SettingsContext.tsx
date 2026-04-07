@@ -12,25 +12,33 @@ export type Settings = {
   temperature: number;
   sharpness: number;
   fsrMode: string;
-  colorProfiles: Array<{id: string, name: string, brightness: number, contrast: number, saturation: number, hue: number, sharpness: number}>;
+  colorProfiles: Array<{
+    id: string;
+    name: string;
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    hue: number;
+    sharpness: number;
+  }>;
   cropHorizontal: number;
   cropVertical: number;
   zoomLevel: number;
 
   autoAspectRatio: boolean;
   manualAspectRatio: string;
-  customAspectPresets: Array<{id: string, name: string, zoomLevel: number, aspectRatio: number}>;
-  
+  customAspectPresets: Array<{ id: string; name: string; zoomLevel: number; aspectRatio: number }>;
+
   // Custom aspect ratios for Free mode
-  customRatios: Array<{id: string, ratio: number}>;
+  customRatios: Array<{ id: string; ratio: number }>;
   autostartWithDevices: boolean;
-  
+
   setAutoAspectRatio(v: boolean): void;
   setManualAspectRatio(v: string): void;
-  setCustomAspectPresets(v: Array<{id: string, name: string, zoomLevel: number, aspectRatio: number}>): void;
-  
+  setCustomAspectPresets(v: Array<{ id: string; name: string; zoomLevel: number; aspectRatio: number }>): void;
+
   // Custom ratios setter
-  setCustomRatios(v: Array<{id: string, ratio: number}>): void;
+  setCustomRatios(v: Array<{ id: string; ratio: number }>): void;
   setAutostartWithDevices(v: boolean): void;
 
   setVideoDevice(v: string): void;
@@ -43,7 +51,17 @@ export type Settings = {
   setTemperature(v: number): void;
   setSharpness(v: number): void;
   setFsrMode(v: string): void;
-  setColorProfiles(v: Array<{id: string, name: string, brightness: number, contrast: number, saturation: number, hue: number, sharpness: number}>): void;
+  setColorProfiles(
+    v: Array<{
+      id: string;
+      name: string;
+      brightness: number;
+      contrast: number;
+      saturation: number;
+      hue: number;
+      sharpness: number;
+    }>
+  ): void;
   setCropHorizontal(v: number): void;
   setCropVertical(v: number): void;
   setZoomLevel(v: number): void;
@@ -84,7 +102,7 @@ const DEFAULT_SETTINGS = {
   manualAspectRatio: '16:9',
   customAspectPresets: [],
   customRatios: [],
-  autostartWithDevices: false,
+  autostartWithDevices: false
 };
 
 type StoredSettings = typeof DEFAULT_SETTINGS;
@@ -98,9 +116,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // Extract individual settings from the main state
   const {
-    videoDevice, audioDevice, volume, brightness, contrast, saturation, hue,
-    temperature, sharpness, fsrMode, colorProfiles, cropHorizontal, cropVertical,
-    zoomLevel, autoAspectRatio, manualAspectRatio, customAspectPresets, customRatios,
+    videoDevice,
+    audioDevice,
+    volume,
+    brightness,
+    contrast,
+    saturation,
+    hue,
+    temperature,
+    sharpness,
+    fsrMode,
+    colorProfiles,
+    cropHorizontal,
+    cropVertical,
+    zoomLevel,
+    autoAspectRatio,
+    manualAspectRatio,
+    customAspectPresets,
+    customRatios,
     autostartWithDevices
   } = allSettings;
 
@@ -125,11 +158,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [allSettings, debouncedSave]);
 
   // Optimized setter functions that update the entire settings object
-  const createSetter = useCallback(<K extends keyof typeof allSettings>(
-    key: K
-  ) => {
-    return (value: typeof allSettings[K]) => {
-      setAllSettings(prev => ({ ...prev, [key]: value }));
+  const createSetter = useCallback(<K extends keyof typeof allSettings>(key: K) => {
+    return (value: (typeof allSettings)[K]) => {
+      setAllSettings((prev) => ({ ...prev, [key]: value }));
     };
   }, []);
 
@@ -153,27 +184,90 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setCustomRatios = useMemo(() => createSetter('customRatios'), [createSetter]);
   const setAutostartWithDevices = useMemo(() => createSetter('autostartWithDevices'), [createSetter]);
 
-  const value: Settings = useMemo(() => ({
-    videoDevice, audioDevice, volume,
-    brightness, contrast, saturation, hue, temperature, sharpness, fsrMode, colorProfiles, cropHorizontal, cropVertical, zoomLevel,
-    autoAspectRatio, manualAspectRatio, customAspectPresets,
-    customRatios, autostartWithDevices,
-    setVideoDevice, setAudioDevice, setVolume,
-    setBrightness, setContrast, setSaturation, setHue, setTemperature, setSharpness, setFsrMode, setColorProfiles, setCropHorizontal, setCropVertical, setZoomLevel,
-    setAutoAspectRatio, setManualAspectRatio, setCustomAspectPresets,
-    setCustomRatios, setAutostartWithDevices,
-  }), [
-    videoDevice, audioDevice, volume, brightness, contrast, saturation, hue, temperature, sharpness, fsrMode, colorProfiles, cropHorizontal, cropVertical, zoomLevel,
-    autoAspectRatio, manualAspectRatio, customAspectPresets, customRatios, autostartWithDevices,
-    setVideoDevice, setAudioDevice, setVolume, setBrightness, setContrast, setSaturation, setHue, setTemperature, setSharpness, setFsrMode, setColorProfiles, setCropHorizontal, setCropVertical, setZoomLevel,
-    setAutoAspectRatio, setManualAspectRatio, setCustomAspectPresets, setCustomRatios, setAutostartWithDevices
-  ]);
-
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
+  const value: Settings = useMemo(
+    () => ({
+      videoDevice,
+      audioDevice,
+      volume,
+      brightness,
+      contrast,
+      saturation,
+      hue,
+      temperature,
+      sharpness,
+      fsrMode,
+      colorProfiles,
+      cropHorizontal,
+      cropVertical,
+      zoomLevel,
+      autoAspectRatio,
+      manualAspectRatio,
+      customAspectPresets,
+      customRatios,
+      autostartWithDevices,
+      setVideoDevice,
+      setAudioDevice,
+      setVolume,
+      setBrightness,
+      setContrast,
+      setSaturation,
+      setHue,
+      setTemperature,
+      setSharpness,
+      setFsrMode,
+      setColorProfiles,
+      setCropHorizontal,
+      setCropVertical,
+      setZoomLevel,
+      setAutoAspectRatio,
+      setManualAspectRatio,
+      setCustomAspectPresets,
+      setCustomRatios,
+      setAutostartWithDevices
+    }),
+    [
+      videoDevice,
+      audioDevice,
+      volume,
+      brightness,
+      contrast,
+      saturation,
+      hue,
+      temperature,
+      sharpness,
+      fsrMode,
+      colorProfiles,
+      cropHorizontal,
+      cropVertical,
+      zoomLevel,
+      autoAspectRatio,
+      manualAspectRatio,
+      customAspectPresets,
+      customRatios,
+      autostartWithDevices,
+      setVideoDevice,
+      setAudioDevice,
+      setVolume,
+      setBrightness,
+      setContrast,
+      setSaturation,
+      setHue,
+      setTemperature,
+      setSharpness,
+      setFsrMode,
+      setColorProfiles,
+      setCropHorizontal,
+      setCropVertical,
+      setZoomLevel,
+      setAutoAspectRatio,
+      setManualAspectRatio,
+      setCustomAspectPresets,
+      setCustomRatios,
+      setAutostartWithDevices
+    ]
   );
+
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): Settings {

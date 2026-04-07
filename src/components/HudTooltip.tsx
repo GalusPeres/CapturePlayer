@@ -22,7 +22,7 @@ export function HudTooltip({
   targetRef,
   placement = 'top',
   offset = 12,
-  delay = 400, // same default delay as before
+  delay = 400 // same default delay as before
 }: TooltipProps) {
   const [pos, setPos] = useState<{ left: number; top: number; transform: string } | null>(null);
   const [delayedVisible, setDelayedVisible] = useState(false);
@@ -36,7 +36,7 @@ export function HudTooltip({
     setPos({
       left: Math.round(r.left + r.width / 2),
       top: Math.round(placement === 'top' ? r.top - offset : r.bottom + offset),
-      transform: placement === 'top' ? 'translate(-50%,-100%)' : 'translate(-50%,0)',
+      transform: placement === 'top' ? 'translate(-50%,-100%)' : 'translate(-50%,0)'
     });
   };
 
@@ -82,7 +82,7 @@ export function HudTooltip({
         top: pos.top,
         transform: pos.transform,
         opacity: delayedVisible ? 1 : 0,
-        transition: 'opacity 150ms ease-out',
+        transition: 'opacity 150ms ease-out'
       }}
     >
       {/* Background layer with blur */}

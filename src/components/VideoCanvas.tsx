@@ -14,7 +14,15 @@ export type Props = {
   isInitializing?: boolean;
 };
 
-const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, isFullscreen = false, running = false, isProcessing = false, isInitializing = false }) => {
+const VideoCanvas: React.FC<Props> = ({
+  stream,
+  setResolution,
+  zoomLevel = 100,
+  isFullscreen = false,
+  running = false,
+  isProcessing = false,
+  isInitializing = false
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
 
@@ -22,16 +30,16 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
   const getEnhancementConfig = (mode: string) => {
     switch (mode) {
       case 'enhanced':
-        return { 
+        return {
           imageRendering: 'crisp-edges' as const
         };
       case 'custom1':
       case 'custom2':
-        return { 
+        return {
           imageRendering: 'auto' as const
         };
       default: // 'off'
-        return { 
+        return {
           imageRendering: 'auto' as const
         };
     }
@@ -43,12 +51,11 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
       // For values <= 100, use blur for softness
       const blurAmount = Math.max(0, (100 - sharpness) / 50);
       return `blur(${blurAmount}px)`;
-    } else {
-      // For values > 100, use SVG convolution filter for sharpening
-      const sharpenAmount = (sharpness - 100) / 100; // 0 to 1 for 100-200%
-      const filterId = `sharpen-${Math.round(sharpenAmount * 100)}`;
-      return `url(#${filterId})`;
     }
+    // For values > 100, use SVG convolution filter for sharpening
+    const sharpenAmount = (sharpness - 100) / 100; // 0 to 1 for 100-200%
+    const filterId = `sharpen-${Math.round(sharpenAmount * 100)}`;
+    return `url(#${filterId})`;
   };
 
   // Measure video resolution and frame rate - only when stream changes (not continuous)
@@ -57,22 +64,22 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
       setResolution?.(null);
       return;
     }
-    
+
     let isActive = true;
 
     function measureVideoInfo() {
       if (!isActive) return;
-      
+
       const video = videoRef.current;
       if (!video || !video.srcObject) {
         setResolution?.(null);
         return;
       }
-      
+
       const track = (video.srcObject as MediaStream | null)?.getVideoTracks?.()?.[0];
       if (track && track.readyState === 'live') {
         const trackSettings = track.getSettings?.();
-        let fps: number | undefined = undefined;
+        let fps: number | undefined;
         if (trackSettings?.frameRate) fps = Math.round(trackSettings.frameRate);
         if (trackSettings?.width && trackSettings?.height) {
           setResolution?.({ w: trackSettings.width, h: trackSettings.height, fps });
@@ -83,10 +90,10 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
         setResolution?.(null);
       }
     }
-    
+
     // Single measurement when stream changes - no continuous polling
     const timeoutId = setTimeout(measureVideoInfo, 200);
-    
+
     return () => {
       isActive = false;
       clearTimeout(timeoutId);
@@ -99,7 +106,7 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
     if (video && stream) {
       video.srcObject = stream;
     }
-    
+
     // Cleanup previous stream
     return () => {
       if (video && video.srcObject !== stream) {
@@ -108,7 +115,7 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
     };
   }, [stream]);
 
-  // Get Enhancement configuration  
+  // Get Enhancement configuration
   const enhanceConfig = getEnhancementConfig(settings.fsrMode);
   // Use settings values (which get updated by presets) instead of preset overrides
   const effectiveSharpness = settings.sharpness;
@@ -120,7 +127,6 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
   const getScaleFactor = () => {
     return zoomLevel / 100; // Base zoom from Ctrl+Mouse Wheel
   };
-
 
   return (
     <>
@@ -155,10 +161,10 @@ const VideoCanvas: React.FC<Props> = ({ stream, setResolution, zoomLevel = 100, 
               hue-rotate(${settings.hue}deg)
               ${getSharpnessFilter(effectiveSharpness)}
             `,
-            transform: `scale(${getScaleFactor()})`,
+            transform: `scale(${getScaleFactor()})`
           }}
         />
-        
+
         {/* Info overlay when not running or no video device while live - but not during processing or initializing */}
         {!isInitializing && !isProcessing && (!running || (running && settings.videoDevice === '')) && (
           <div className="absolute inset-0 flex items-center justify-center">

@@ -6,24 +6,31 @@ const aspectModes = [
   { value: 'auto', label: 'Auto' },
   { value: '16:9', label: '16:9' },
   { value: '4:3', label: '4:3' },
-  { value: 'free', label: 'Free' },
+  { value: 'free', label: 'Free' }
 ];
 
 type Props = {
-  signalInfo?: { w: number, h: number, fps?: number } | null;
+  signalInfo?: { w: number; h: number; fps?: number } | null;
   isFullscreen?: boolean;
   fullscreenZoom?: number;
   setFullscreenZoom?: (zoom: number) => void;
 };
 
-export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 100, setFullscreenZoom = () => {} }: Props = {}) {
+export function DisplayTab({
+  signalInfo,
+  isFullscreen = false,
+  fullscreenZoom = 100,
+  setFullscreenZoom = () => {}
+}: Props = {}) {
   const settings = useSettings();
 
   // Determine current aspect ratio mode
   let aspectMode: string = settings.autoAspectRatio ? 'auto' : settings.manualAspectRatio;
-  if (!['auto', '16:9', '4:3', 'free'].includes(aspectMode) && 
-      !aspectMode.startsWith('custom-') && 
-      !settings.customRatios.some(cr => cr.id === aspectMode)) {
+  if (
+    !['auto', '16:9', '4:3', 'free'].includes(aspectMode) &&
+    !aspectMode.startsWith('custom-') &&
+    !settings.customRatios.some((cr) => cr.id === aspectMode)
+  ) {
     aspectMode = 'auto';
   }
 
@@ -37,19 +44,18 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
     }
   };
 
-
   // Custom aspect ratio management
   const createCustomRatio = () => {
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     if (!windowWidth || !windowHeight) return;
-    
+
     const currentRatio = windowWidth / windowHeight;
     const newCustomRatio = {
       id: `ratio-${Date.now()}`,
       ratio: currentRatio
     };
-    
+
     settings.setCustomRatios([...settings.customRatios, newCustomRatio]);
     // Automatically switch to the new custom ratio
     settings.setAutoAspectRatio(false);
@@ -57,7 +63,7 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
   };
 
   const deleteCustomRatio = (ratioId: string) => {
-    settings.setCustomRatios(settings.customRatios.filter(cr => cr.id !== ratioId));
+    settings.setCustomRatios(settings.customRatios.filter((cr) => cr.id !== ratioId));
     // If currently selected ratio is deleted, switch to auto
     if (settings.manualAspectRatio === ratioId) {
       settings.setAutoAspectRatio(true);
@@ -66,12 +72,11 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
 
   return (
     <>
-
       {/* Aspect Ratio Presets */}
       <div>
         <div className="mb-1">Aspect Ratio Presets:</div>
         <div className="flex flex-wrap gap-2">
-          {aspectModes.map(opt => (
+          {aspectModes.map((opt) => (
             <button
               key={opt.value}
               className={`px-3 py-1 rounded-full border text-sm ${
@@ -84,9 +89,9 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
               {opt.label}
             </button>
           ))}
-          
+
           {/* Custom Aspect Ratio Buttons */}
-          {settings.customRatios.map(customRatio => (
+          {settings.customRatios.map((customRatio) => (
             <button
               key={customRatio.id}
               className={`px-3 py-1 rounded-full border text-sm ${
@@ -100,11 +105,15 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
             </button>
           ))}
         </div>
-        
+
         {/* Info text */}
         <div className="mt-2">
           <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> To create <span className="text-white">custom</span> aspect ratios: select <span className="text-white">"Free"</span> mode, resize window with mouse, then click <span className="text-white">"Create ..."</span> button. <span className="text-white">Presets</span> have fixed aspect ratios and can be deleted with <span className="text-white">"Delete ..."</span> button when selected.
+            <span className="text-white">💡</span> To create <span className="text-white">custom</span> aspect ratios:
+            select <span className="text-white">"Free"</span> mode, resize window with mouse, then click{' '}
+            <span className="text-white">"Create ..."</span> button. <span className="text-white">Presets</span> have
+            fixed aspect ratios and can be deleted with <span className="text-white">"Delete ..."</span> button when
+            selected.
           </div>
         </div>
       </div>
@@ -129,7 +138,7 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
             }}
             className="flex-1 volume-range"
             style={{
-              ['--val' as any]: `${((isFullscreen ? fullscreenZoom : settings.zoomLevel) - 50) / (300 - 50) * 100}%`,
+              ['--val' as any]: `${(((isFullscreen ? fullscreenZoom : settings.zoomLevel) - 50) / (300 - 50)) * 100}%`
             }}
             onInput={(e) => {
               const val = Number((e.target as HTMLInputElement).value);
@@ -139,11 +148,12 @@ export function DisplayTab({ signalInfo, isFullscreen = false, fullscreenZoom = 
           />
           <span className="w-12 text-right shrink-0">{isFullscreen ? fullscreenZoom : settings.zoomLevel}%</span>
         </div>
-        
+
         {/* Info text */}
         <div className="mt-2">
           <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> Use <span className="text-white">Ctrl+Mouse Wheel</span> to zoom while streaming
+            <span className="text-white">💡</span> Use <span className="text-white">Ctrl+Mouse Wheel</span> to zoom
+            while streaming
           </div>
         </div>
       </div>
@@ -158,17 +168,17 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
   const createCustomRatio = () => {
     // Check max limit of 4 custom ratios
     if (settings.customRatios.length >= 4) return;
-    
+
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     if (!windowWidth || !windowHeight) return;
-    
+
     const currentRatio = windowWidth / windowHeight;
     const newCustomRatio = {
       id: `ratio-${Date.now()}`,
       ratio: currentRatio
     };
-    
+
     settings.setCustomRatios([...settings.customRatios, newCustomRatio]);
     settings.setAutoAspectRatio(false);
     settings.setManualAspectRatio(newCustomRatio.id);
@@ -177,11 +187,11 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
   const deleteCustomRatio = () => {
     const currentRatio = settings.manualAspectRatio;
     if (settings.autoAspectRatio || ['16:9', '4:3', 'free'].includes(currentRatio)) return;
-    
-    const customRatio = settings.customRatios.find(cr => cr.id === currentRatio);
+
+    const customRatio = settings.customRatios.find((cr) => cr.id === currentRatio);
     if (!customRatio) return;
-    
-    settings.setCustomRatios(settings.customRatios.filter(cr => cr.id !== currentRatio));
+
+    settings.setCustomRatios(settings.customRatios.filter((cr) => cr.id !== currentRatio));
     settings.setAutoAspectRatio(true);
   };
 
@@ -194,10 +204,12 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
     }
   };
 
-  const canCreateCustom = !settings.autoAspectRatio && settings.manualAspectRatio === 'free' && settings.customRatios.length < 4;
-  const canDeleteCustom = !settings.autoAspectRatio && 
+  const canCreateCustom =
+    !settings.autoAspectRatio && settings.manualAspectRatio === 'free' && settings.customRatios.length < 4;
+  const canDeleteCustom =
+    !settings.autoAspectRatio &&
     !['16:9', '4:3', 'free'].includes(settings.manualAspectRatio) &&
-    settings.customRatios.some(cr => cr.id === settings.manualAspectRatio);
+    settings.customRatios.some((cr) => cr.id === settings.manualAspectRatio);
 
   // Get current ratio for display in create button
   const getCurrentRatio = () => {
@@ -212,7 +224,7 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
   // Get selected custom ratio for display in delete button
   const getSelectedRatio = () => {
     if (canDeleteCustom) {
-      const customRatio = settings.customRatios.find(cr => cr.id === settings.manualAspectRatio);
+      const customRatio = settings.customRatios.find((cr) => cr.id === settings.manualAspectRatio);
       return customRatio ? customRatio.ratio.toFixed(2) : '';
     }
     return '';

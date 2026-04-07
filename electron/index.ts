@@ -17,8 +17,8 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       backgroundThrottling: false,
-      nodeIntegration: false,
-    },
+      nodeIntegration: false
+    }
   });
 
   mainWin = win;
@@ -85,10 +85,9 @@ ipcMain.handle('open-external', async (_event, url: string) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to open external URL:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 });
-

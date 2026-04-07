@@ -11,23 +11,23 @@ export default defineConfig({
     electron([
       {
         /* Main-Process */
-        entry: 'electron/index.ts',
+        entry: 'electron/index.ts'
       },
       {
         /* Preload */
-        entry: 'electron/preload.ts',
-      },
+        entry: 'electron/preload.ts'
+      }
     ]),
 
-    renderer(),
+    renderer()
   ],
 
   build: {
     outDir: 'dist-vite',
-    emptyOutDir: true,
+    emptyOutDir: true
   },
 
   server: {
-    port: 3000,
-  },
+    port: 3000
+  }
 });
