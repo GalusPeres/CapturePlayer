@@ -1,5 +1,5 @@
 // src/components/VideoCanvas.tsx - Video display with color filters and resolution detection
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import playIcon from '../assets/icons/play.png';
 import settingsIcon from '../assets/icons/settings.svg';
@@ -14,6 +14,19 @@ export type Props = {
   isInitializing?: boolean;
 };
 
+type VideoDebugInfo = {
+  width: number;
+  height: number;
+  trackFps?: number;
+  displayFps: number;
+  lastFrameMs: number;
+  maxFrameMs: number;
+  idleMs: number;
+  stallCount: number;
+  presentedFrames: number;
+  stalled: boolean;
+};
+
 const VideoCanvas: React.FC<Props> = ({
   stream,
   setResolution,
@@ -25,6 +38,8 @@ const VideoCanvas: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
+  const [debugInfo, setDebugInfo] = useState<VideoDebugInfo | null>(null);
+  const isDev = import.meta.env.DEV;
 
   // Image Enhancement Modes - GPU-accelerated, zero-latency
   const getEnhancementConfig = (mode: string) => {
@@ -120,16 +135,152 @@ const VideoCanvas: React.FC<Props> = ({
     };
   }, [setResolution, stream]);
 
+  // Dev-only video timing overlay to diagnose frame pacing and stalls.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream || !isDev) {
+      setDebugInfo(null);
+      return;
+    }
+
+    if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
+      setDebugInfo(null);
+      return;
+    }
+
+    let cancelled = false;
+    let frameRequestId = 0;
+    let lastFrameNow = 0;
+    let windowStart = performance.now();
+    let frameCount = 0;
+    let lastFrameMs = 0;
+    let maxFrameMs = 0;
+    let stallCount = 0;
+    let presentedFrames = 0;
+
+    const publishStats = () => {
+      if (cancelled) return;
+
+      const track = stream.getVideoTracks()[0];
+      const trackSettings = track?.getSettings?.();
+      const trackFps = trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : undefined;
+      const elapsed = performance.now() - windowStart;
+      const displayFps = elapsed > 0 ? (frameCount / elapsed) * 1000 : 0;
+      const idleMs = lastFrameNow ? performance.now() - lastFrameNow : 0;
+      const expectedFrameMs = trackFps ? 1000 / trackFps : 16.7;
+      const stalled = idleMs > Math.max(50, expectedFrameMs * 2.5);
+
+      setDebugInfo({
+        width: video.videoWidth || trackSettings?.width || 0,
+        height: video.videoHeight || trackSettings?.height || 0,
+        trackFps,
+        displayFps,
+        lastFrameMs,
+        maxFrameMs,
+        idleMs,
+        stallCount,
+        presentedFrames,
+        stalled
+      });
+
+      windowStart = performance.now();
+      frameCount = 0;
+      maxFrameMs = 0;
+      stallCount = 0;
+    };
+
+    const onFrame: VideoFrameRequestCallback = (now, metadata) => {
+      if (cancelled) return;
+
+      if (lastFrameNow !== 0) {
+        lastFrameMs = now - lastFrameNow;
+        maxFrameMs = Math.max(maxFrameMs, lastFrameMs);
+
+        const expectedFrameMs =
+          metadata.presentedFrames > 1 && metadata.mediaTime > 0
+            ? 1000 / Math.max(1, Math.round(metadata.presentedFrames / metadata.mediaTime))
+            : 16.7;
+
+        if (lastFrameMs > Math.max(50, expectedFrameMs * 2.5)) {
+          stallCount += 1;
+        }
+      }
+
+      lastFrameNow = now;
+      frameCount += 1;
+      presentedFrames = metadata.presentedFrames;
+      frameRequestId = video.requestVideoFrameCallback(onFrame);
+    };
+
+    frameRequestId = video.requestVideoFrameCallback(onFrame);
+    const publishIntervalId = window.setInterval(publishStats, 500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(publishIntervalId);
+      if ('cancelVideoFrameCallback' in video && frameRequestId) {
+        video.cancelVideoFrameCallback(frameRequestId);
+      }
+    };
+  }, [isDev, stream]);
+
   // Set video stream source with cleanup
   useEffect(() => {
     const video = videoRef.current;
-    if (video && stream) {
+    if (!video) return;
+
+    let cancelled = false;
+
+    const ensurePlayback = async () => {
+      if (cancelled || !video.srcObject) return;
+
+      try {
+        if (video.paused || video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          await video.play();
+        }
+      } catch {
+        // Autoplay/playback issues should not break the preview pipeline.
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      void ensurePlayback();
+    };
+
+    const onCanPlay = () => {
+      void ensurePlayback();
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void ensurePlayback();
+      }
+    };
+
+    const onFocus = () => {
+      void ensurePlayback();
+    };
+
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('canplay', onCanPlay);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+
+    if (stream) {
       video.srcObject = stream;
+      void ensurePlayback();
+    } else if (video.srcObject) {
+      video.srcObject = null;
     }
 
     // Cleanup previous stream
     return () => {
-      if (video && video.srcObject !== stream) {
+      cancelled = true;
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('canplay', onCanPlay);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      if (video.srcObject === stream) {
         video.srcObject = null;
       }
     };
@@ -171,6 +322,7 @@ const VideoCanvas: React.FC<Props> = ({
           ref={videoRef}
           autoPlay
           muted
+          playsInline
           className="w-full h-full object-contain"
           style={{
             imageRendering: enhanceConfig.imageRendering as any,
@@ -184,6 +336,29 @@ const VideoCanvas: React.FC<Props> = ({
             transform: `scale(${getScaleFactor()})`
           }}
         />
+
+        {isDev && running && debugInfo && (
+          <div
+            className="
+              absolute top-4 left-4 z-40
+              px-3 py-2 rounded-md
+              bg-black/70 border border-white/10
+              text-white/90 text-xs font-mono leading-relaxed
+              pointer-events-none
+            "
+          >
+            <div>
+              {debugInfo.width}x{debugInfo.height}
+              {debugInfo.trackFps ? ` @${debugInfo.trackFps} src` : ''}
+            </div>
+            <div>display: {debugInfo.displayFps.toFixed(1)} fps</div>
+            <div>frame: {debugInfo.lastFrameMs.toFixed(1)} ms</div>
+            <div>max gap: {debugInfo.maxFrameMs.toFixed(1)} ms</div>
+            <div>idle: {debugInfo.idleMs.toFixed(1)} ms</div>
+            <div>stalls: {debugInfo.stallCount}</div>
+            <div>state: {debugInfo.stalled ? 'stalled' : 'ok'}</div>
+          </div>
+        )}
 
         {/* Info overlay when not running or no video device while live - but not during processing or initializing */}
         {!isInitializing && !isProcessing && (!running || (running && settings.videoDevice === '')) && (

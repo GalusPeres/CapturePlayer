@@ -346,14 +346,14 @@ export default function App() {
       {showZoomIndicator && (
         <div
           className="
-          absolute top-4 right-4 z-50
-          px-3 py-2 rounded-md
-          bg-stone-600/50 backdrop-blur-[6px]
-          border border-stone-600/30
-          text-white text-sm font-medium shadow
-          pointer-events-none
-          transition-all duration-150 ease-out
-        "
+            absolute top-4 right-4 z-50
+            px-3 py-2 rounded-md
+            bg-stone-600/50 backdrop-blur-[6px]
+            border border-stone-600/30
+            text-white text-sm font-medium shadow
+            pointer-events-none
+            transition-all duration-150 ease-out
+          "
         >
           {isFullscreen ? fullscreenZoom : settings.zoomLevel}%
         </div>
