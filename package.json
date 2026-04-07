@@ -48,6 +48,10 @@
   },
   "build": {
     "asar": true,
+    "electronLanguages": [
+      "en-US",
+      "de"
+    ],
     "files": [
       "dist-electron/**",
       "dist-vite/**"
