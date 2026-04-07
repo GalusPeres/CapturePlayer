@@ -87,10 +87,12 @@ const DEFAULT_SETTINGS = {
   autostartWithDevices: false,
 };
 
+type StoredSettings = typeof DEFAULT_SETTINGS;
+
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // Load all settings at once during initialization
-  const [allSettings, setAllSettings] = useState(() => {
-    const loaded = loadAllSettings();
+  const [allSettings, setAllSettings] = useState<StoredSettings>(() => {
+    const loaded = loadAllSettings() as Partial<StoredSettings>;
     return { ...DEFAULT_SETTINGS, ...loaded };
   });
 
