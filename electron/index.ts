@@ -42,18 +42,6 @@ function createMainWindow() {
   });
 }
 
-// Performance optimization flags
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('ignore-gpu-blacklist');
-app.commandLine.appendSwitch('disable-gpu-sandbox');
-app.commandLine.appendSwitch('enable-hardware-overlays');
-app.commandLine.appendSwitch('enable-native-gpu-memory-buffers');
-app.commandLine.appendSwitch('enable-checker-imaging');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('max-active-webgl-contexts', '16');
-
 app.whenReady().then(createMainWindow);
 
 app.on('window-all-closed', () => {
