@@ -1,5 +1,5 @@
 // src/components/SettingsModal/BasicTab.tsx - Device selection and media controls
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { SimpleSelectOption, SimpleSelect } from '../SimpleSelect';
 
@@ -11,6 +11,7 @@ type Props = {
   localAudio: string;
   setLocalAudio: (value: string) => void;
   signalInfo?: SignalInfo;
+  running: boolean;
 };
 
 // Clean device labels by removing hardware IDs in parentheses
@@ -18,27 +19,59 @@ function cleanLabel(label: string): string {
   return label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim();
 }
 
-export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLocalAudio, signalInfo }: Props) {
+function hasDeviceLabels(devices: MediaDeviceInfo[]) {
+  return devices.some(
+    (device) => (device.kind === 'videoinput' || device.kind === 'audioinput') && device.label.trim() !== ''
+  );
+}
+
+export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLocalAudio, signalInfo, running }: Props) {
   const settings = useSettings();
 
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
 
-  // Device detection on component mount
-  useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        // Stop all tracks immediately - we just needed permission
-        stream.getTracks().forEach((track) => track.stop());
-        return navigator.mediaDevices.enumerateDevices();
-      })
-      .then((devices) => {
-        setVideoDevices(devices.filter((d) => d.kind === 'videoinput'));
-        setAudioDevices(devices.filter((d) => d.kind === 'audioinput'));
-      })
-      .catch(console.error);
+  const updateDeviceLists = useCallback((devices: MediaDeviceInfo[]) => {
+    setVideoDevices(devices.filter((d) => d.kind === 'videoinput'));
+    setAudioDevices(devices.filter((d) => d.kind === 'audioinput'));
   }, []);
+
+  // Device detection when the devices tab is shown.
+  // While capture is already running, avoid probing getUserMedia again because
+  // re-opening the device can briefly disturb the active audio path.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDevices = async () => {
+      try {
+        let devices = await navigator.mediaDevices.enumerateDevices();
+        if (cancelled) return;
+
+        updateDeviceLists(devices);
+
+        // Only do a one-time permission probe when nothing is running and labels
+        // are still unavailable. When capture is already live, enumerateDevices()
+        // is enough and avoids a short audio glitch.
+        if (!running && !hasDeviceLabels(devices)) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+
+          devices = await navigator.mediaDevices.enumerateDevices();
+          if (cancelled) return;
+
+          updateDeviceLists(devices);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadDevices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [running, updateDeviceLists]);
 
   // Filter and format video devices for dropdown
   const filteredVideo = useMemo<SimpleSelectOption[]>(() => {

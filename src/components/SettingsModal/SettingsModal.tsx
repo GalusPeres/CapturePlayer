@@ -204,6 +204,7 @@ export default function SettingsModal({
               localAudio={localAudio}
               setLocalAudio={setLocalAudio}
               signalInfo={signalInfo}
+              running={running}
             />
           ) : tab === 'view' ? (
             <DisplayTab
