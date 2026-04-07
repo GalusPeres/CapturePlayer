@@ -241,7 +241,7 @@ export function useCaptureStream() {
   }, [settings.volume]);
 
   useEffect(() => {
-    if (!import.meta.env.DEV || !stream) return undefined;
+    if (!import.meta.env.DEV || !stream || !settings.showDiagnosticsOverlay) return undefined;
 
     const intervalId = window.setInterval(() => {
       const ac = audioCtxRef.current;
@@ -259,7 +259,7 @@ export function useCaptureStream() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [stream]);
+  }, [settings.showDiagnosticsOverlay, stream]);
 
   // Cleanup on unmount with memory management
   useEffect(() => {

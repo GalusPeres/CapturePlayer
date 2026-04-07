@@ -23,6 +23,7 @@ export function DisplayTab({
   setFullscreenZoom = () => {}
 }: Props = {}) {
   const settings = useSettings();
+  const isDev = import.meta.env.DEV;
 
   // Determine current aspect ratio mode
   let aspectMode: string = settings.autoAspectRatio ? 'auto' : settings.manualAspectRatio;
@@ -157,6 +158,40 @@ export function DisplayTab({
           </div>
         </div>
       </div>
+
+      {isDev && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label>Diagnostics Overlay:</label>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
+              className={`
+                w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
+                ${
+                  settings.showDiagnosticsOverlay
+                    ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
+                    : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
+                }
+                focus:outline-none focus:ring-2 focus:ring-blue-500/50
+              `}
+            >
+              {settings.showDiagnosticsOverlay && (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+            <span
+              onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
+              className="text-sm text-white/90 cursor-pointer select-none"
+            >
+              Show diagnostics overlay
+            </span>
+          </div>
+        </div>
+      )}
     </>
   );
 }

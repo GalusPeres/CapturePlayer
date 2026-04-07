@@ -32,6 +32,7 @@ export type Settings = {
   // Custom aspect ratios for Free mode
   customRatios: Array<{ id: string; ratio: number }>;
   autostartWithDevices: boolean;
+  showDiagnosticsOverlay: boolean;
 
   setAutoAspectRatio(v: boolean): void;
   setManualAspectRatio(v: string): void;
@@ -40,6 +41,7 @@ export type Settings = {
   // Custom ratios setter
   setCustomRatios(v: Array<{ id: string; ratio: number }>): void;
   setAutostartWithDevices(v: boolean): void;
+  setShowDiagnosticsOverlay(v: boolean): void;
 
   setVideoDevice(v: string): void;
   setAudioDevice(a: string): void;
@@ -102,7 +104,8 @@ const DEFAULT_SETTINGS = {
   manualAspectRatio: '16:9',
   customAspectPresets: [],
   customRatios: [],
-  autostartWithDevices: false
+  autostartWithDevices: false,
+  showDiagnosticsOverlay: true
 };
 
 type StoredSettings = typeof DEFAULT_SETTINGS;
@@ -134,7 +137,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     manualAspectRatio,
     customAspectPresets,
     customRatios,
-    autostartWithDevices
+    autostartWithDevices,
+    showDiagnosticsOverlay
   } = allSettings;
 
   // Debounced save function to batch localStorage writes
@@ -183,6 +187,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setCustomAspectPresets = useMemo(() => createSetter('customAspectPresets'), [createSetter]);
   const setCustomRatios = useMemo(() => createSetter('customRatios'), [createSetter]);
   const setAutostartWithDevices = useMemo(() => createSetter('autostartWithDevices'), [createSetter]);
+  const setShowDiagnosticsOverlay = useMemo(() => createSetter('showDiagnosticsOverlay'), [createSetter]);
 
   const value: Settings = useMemo(
     () => ({
@@ -205,6 +210,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       customAspectPresets,
       customRatios,
       autostartWithDevices,
+      showDiagnosticsOverlay,
       setVideoDevice,
       setAudioDevice,
       setVolume,
@@ -223,7 +229,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setManualAspectRatio,
       setCustomAspectPresets,
       setCustomRatios,
-      setAutostartWithDevices
+      setAutostartWithDevices,
+      setShowDiagnosticsOverlay
     }),
     [
       videoDevice,
@@ -245,6 +252,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       customAspectPresets,
       customRatios,
       autostartWithDevices,
+      showDiagnosticsOverlay,
       setVideoDevice,
       setAudioDevice,
       setVolume,
@@ -263,7 +271,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setManualAspectRatio,
       setCustomAspectPresets,
       setCustomRatios,
-      setAutostartWithDevices
+      setAutostartWithDevices,
+      setShowDiagnosticsOverlay
     ]
   );
 

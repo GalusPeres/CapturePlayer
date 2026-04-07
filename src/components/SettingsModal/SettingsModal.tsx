@@ -109,11 +109,6 @@ export default function SettingsModal({
       >
         {/* Header + Tab Navigation */}
         <div className="relative">
-          {/* Active tab overlay - darker background */}
-          {tab === 'devices' && <div className="absolute bottom-0 left-0 w-1/4 h-10 bg-zinc-900/75 rounded-tr-lg" />}
-          {tab === 'view' && <div className="absolute bottom-0 left-1/4 w-1/4 h-10 bg-zinc-900/75 rounded-t-lg" />}
-          {tab === 'color' && <div className="absolute bottom-0 left-1/2 w-1/4 h-10 bg-zinc-900/75 rounded-t-lg" />}
-          {tab === 'about' && <div className="absolute bottom-0 left-3/4 w-1/4 h-10 bg-zinc-900/75 rounded-tl-lg" />}
           {/* Header - Compact */}
           <div className="flex justify-between items-center px-6 py-3 no-drag relative">
             <h3 className="text-white text-lg">Settings</h3>
@@ -126,36 +121,17 @@ export default function SettingsModal({
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex relative no-drag" role="tablist" onKeyDown={onTabKeyDown}>
-            {/* Line segments - everywhere except under active tab */}
-            {tab !== 'devices' && <div className="absolute bottom-0 left-0 w-1/4 h-px bg-zinc-600/40" />}
-            {tab !== 'view' && <div className="absolute bottom-0 left-1/4 w-1/4 h-px bg-zinc-600/40" />}
-            {tab !== 'color' && <div className="absolute bottom-0 left-1/2 w-1/4 h-px bg-zinc-600/40" />}
-            {tab !== 'about' && <div className="absolute bottom-0 left-3/4 w-1/4 h-px bg-zinc-600/40" />}
-
-            {/* Border frames for active tab */}
-            {tab === 'devices' && (
-              <div className="absolute top-0 left-0 w-1/4 h-full border-t border-r border-zinc-600/40 rounded-tr-lg" />
-            )}
-            {tab === 'view' && (
-              <div className="absolute top-0 left-1/4 w-1/4 h-full border-t border-l border-r border-zinc-600/40 rounded-t-lg" />
-            )}
-            {tab === 'color' && (
-              <div className="absolute top-0 left-1/2 w-1/4 h-full border-t border-l border-r border-zinc-600/40 rounded-t-lg" />
-            )}
-            {tab === 'about' && (
-              <div className="absolute top-0 left-3/4 w-1/4 h-full border-t border-l border-zinc-600/40 rounded-tl-lg" />
-            )}
+          <div className="flex relative no-drag z-10" role="tablist" onKeyDown={onTabKeyDown}>
             <button
               ref={basicRef}
               role="tab"
               aria-selected={tab === 'devices'}
               onClick={() => setTab('devices')}
-              className={`flex-1 py-2 text-center ${
+              className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'devices'
-                  ? 'text-white relative z-10 rounded-tr-lg'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 rounded-tr-lg'
-              } focus:outline-none transition-all`}
+                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 rounded-tr-lg'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40 rounded-tr-lg'
+              } focus:outline-none transition-colors`}
             >
               Devices
             </button>
@@ -164,9 +140,11 @@ export default function SettingsModal({
               role="tab"
               aria-selected={tab === 'view'}
               onClick={() => setTab('view')}
-              className={`flex-1 py-2 text-center ${
-                tab === 'view' ? 'text-white relative z-10' : 'text-white/60 hover:text-white hover:bg-zinc-700/60'
-              } focus:outline-none transition-all rounded-t-lg`}
+              className={`flex-1 py-2 text-center border border-transparent ${
+                tab === 'view'
+                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40'
+              } focus:outline-none transition-colors rounded-t-lg`}
             >
               View
             </button>
@@ -174,9 +152,11 @@ export default function SettingsModal({
               role="tab"
               aria-selected={tab === 'color'}
               onClick={() => setTab('color')}
-              className={`flex-1 py-2 text-center ${
-                tab === 'color' ? 'text-white relative z-10' : 'text-white/60 hover:text-white hover:bg-zinc-700/60'
-              } focus:outline-none transition-all rounded-t-lg`}
+              className={`flex-1 py-2 text-center border border-transparent ${
+                tab === 'color'
+                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40'
+              } focus:outline-none transition-colors rounded-t-lg`}
             >
               Color
             </button>
@@ -184,11 +164,11 @@ export default function SettingsModal({
               role="tab"
               aria-selected={tab === 'about'}
               onClick={() => setTab('about')}
-              className={`flex-1 py-2 text-center ${
+              className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'about'
-                  ? 'text-white relative z-10 rounded-tl-lg'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 rounded-tl-lg'
-              } focus:outline-none transition-all`}
+                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-l-zinc-600/40 rounded-tl-lg'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40 rounded-tl-lg'
+              } focus:outline-none transition-colors`}
             >
               About
             </button>
@@ -196,7 +176,7 @@ export default function SettingsModal({
         </div>
 
         {/* Tab Content - Expanded */}
-        <div className="p-6 flex-1 overflow-auto text-white space-y-5 scrollbar-thin bg-zinc-900/75">
+        <div className="relative px-6 pt-5 pb-6 flex-1 overflow-auto text-white space-y-3 scrollbar-thin bg-zinc-900/75">
           {tab === 'devices' ? (
             <BasicTab
               localVideo={localVideo}

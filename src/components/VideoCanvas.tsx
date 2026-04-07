@@ -207,7 +207,7 @@ const VideoCanvas: React.FC<Props> = ({
 
       setDebugInfo(nextStats);
 
-      const shouldLog = stalled || performance.now() - lastLoggedAt >= 2000;
+      const shouldLog = settings.showDiagnosticsOverlay && (stalled || performance.now() - lastLoggedAt >= 2000);
       if (shouldLog) {
         window.electronAPI.debugFrameStats?.({
           ...nextStats,
@@ -266,7 +266,7 @@ const VideoCanvas: React.FC<Props> = ({
         video.cancelVideoFrameCallback(frameRequestId);
       }
     };
-  }, [isDev, stream]);
+  }, [isDev, settings.showDiagnosticsOverlay, stream]);
 
   // Set video stream source with cleanup
   useEffect(() => {
@@ -388,7 +388,7 @@ const VideoCanvas: React.FC<Props> = ({
           }}
         />
 
-        {isDev && running && debugInfo && (
+        {isDev && settings.showDiagnosticsOverlay && running && debugInfo && (
           <div
             className="
               absolute top-4 left-4 z-40
