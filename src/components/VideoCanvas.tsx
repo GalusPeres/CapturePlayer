@@ -101,6 +101,10 @@ const VideoCanvas: React.FC<Props> = ({
 
     let isActive = true;
     let lastSignature: string | null = null;
+    let frameRequestId = 0;
+    let fpsWindowStart = performance.now();
+    let fpsFrameCount = 0;
+    let measuredFps: number | undefined;
 
     const updateResolution = (next: { w: number; h: number; fps?: number } | null) => {
       const signature = next ? `${next.w}x${next.h}@${next.fps ?? 0}` : 'null';
@@ -120,7 +124,7 @@ const VideoCanvas: React.FC<Props> = ({
       }
 
       const trackSettings = track.getSettings?.();
-      const fps = trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : undefined;
+      const fps = measuredFps ?? (trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : undefined);
       const width = video.videoWidth || trackSettings?.width;
       const height = video.videoHeight || trackSettings?.height;
 
@@ -143,12 +147,35 @@ const VideoCanvas: React.FC<Props> = ({
     const timeoutId = window.setTimeout(measureVideoInfo, 200);
     const intervalId = window.setInterval(measureVideoInfo, 750);
 
+    const onFrame: VideoFrameRequestCallback = () => {
+      if (!isActive) return;
+
+      fpsFrameCount += 1;
+      const elapsed = performance.now() - fpsWindowStart;
+
+      if (elapsed >= 1500) {
+        measuredFps = Math.round((fpsFrameCount / elapsed) * 1000);
+        fpsWindowStart = performance.now();
+        fpsFrameCount = 0;
+        measureVideoInfo();
+      }
+
+      frameRequestId = video.requestVideoFrameCallback(onFrame);
+    };
+
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      frameRequestId = video.requestVideoFrameCallback(onFrame);
+    }
+
     return () => {
       isActive = false;
       video.removeEventListener('loadedmetadata', onMetadata);
       video.removeEventListener('resize', onResize);
       clearTimeout(timeoutId);
       clearInterval(intervalId);
+      if ('cancelVideoFrameCallback' in video && frameRequestId) {
+        video.cancelVideoFrameCallback(frameRequestId);
+      }
     };
   }, [setResolution, stream]);
 
