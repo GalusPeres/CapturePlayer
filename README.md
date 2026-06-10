@@ -3,16 +3,15 @@
   <h1>CapturePlayer</h1>
 </div>
 
-A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles.
+A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles. Now available for **Windows, Linux and macOS (Apple Silicon)**.
 
-## What's New in v0.2.0
+## What's New in v0.3.0
 
-- **Autostart Function** - Launch with capture already running
-- **Custom Aspect Ratio Presets** - Create and save your own aspect ratios  
-- **Color Presets System** - Save favorite brightness, contrast, saturation & hue combinations
-- **Zoom Control** - Zoom in/out with Ctrl + Mouse Wheel (fullscreen & windowed)
-- **Complete Settings Overhaul** - New preset-based configuration system
-- **Improved Design** - Enhanced UI/UX throughout the application
+- **Low-Latency Renderer** - New WebGL render path presents capture frames immediately, cutting input lag to OBS preview level and below
+- **Zero-Cost Color Controls** - Brightness, contrast, saturation, hue & sharpness now run as GPU shaders without adding latency
+- **Linux & macOS Support** - First official builds for Linux (AppImage) and macOS (Apple Silicon)
+- **Smoother Frame Pacing** - Frames are displayed at a steady source rate instead of arriving in bursts
+- **UI Polish** - Flicker-free HUD and settings rendering
 
 ## The Problem
 
@@ -64,8 +63,10 @@ CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing 
 
 Download the latest release from [GitHub Releases](https://github.com/galusperes/CapturePlayer/releases/latest):
 
-- **Installer:** `CapturePlayer.Setup.0.2.0.exe` - Standard Windows installation
-- **Portable:** `CapturePlayer.0.2.0.portable.exe` - No installation needed
+- **Windows Installer:** `CapturePlayer.Setup.x.x.x.exe` - Standard Windows installation
+- **Windows Portable:** `CapturePlayer.x.x.x.portable.exe` - No installation needed
+- **Linux:** `CapturePlayer.x.x.x.AppImage` - Make it executable (`chmod +x`) and run
+- **macOS (Apple Silicon):** `CapturePlayer.x.x.x.arm64.dmg` - On first launch, right-click the app and choose "Open" (build is not notarized)
 
 ## How to Use
 
@@ -91,6 +92,7 @@ Download the latest release from [GitHub Releases](https://github.com/galusperes
 - Elgato HD60 S+
 - Nintendo Switch 2
 - Windows 11
+- macOS (Apple Silicon, M1)
 
 ## Why Not OBS?
 

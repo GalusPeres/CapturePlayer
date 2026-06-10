@@ -48,6 +48,10 @@
   },
   "build": {
     "asar": true,
+    "publish": {
+      "provider": "github",
+      "publishAutoUpdate": false
+    },
     "electronLanguages": [
       "en-US",
       "de"
@@ -72,8 +76,20 @@
       ]
     },
     "nsis": {
+      "artifactName": "${productName}.Setup.${version}.${ext}",
+      "differentialPackage": false,
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "${productName}.${version}.portable.${ext}"
+    },
+    "appImage": {
+      "artifactName": "${productName}.${version}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "${productName}.${version}.${arch}.${ext}",
+      "writeUpdateInfo": false
     },
     "mac": {
       "icon": "src/assets/icons/icon.png",
