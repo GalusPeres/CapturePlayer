@@ -95,7 +95,7 @@ export default function SettingsModal({
     >
       <div
         className={`
-          bg-gradient-to-br from-blue-950/95 to-green-950/95
+          bg-gradient-to-br from-blue-950 to-green-950
           rounded-2xl
           border border-zinc-700
           shadow-[0_0_70px_rgba(0,0,0,0.8)]
@@ -128,8 +128,8 @@ export default function SettingsModal({
               onClick={() => setTab('devices')}
               className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'devices'
-                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 rounded-tr-lg'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40 rounded-tr-lg'
+                  ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-r-zinc-600/40 rounded-tr-lg'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40 rounded-tr-lg'
               } focus:outline-none transition-colors`}
             >
               Devices
@@ -141,8 +141,8 @@ export default function SettingsModal({
               onClick={() => setTab('view')}
               className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'view'
-                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40'
+                  ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40'
               } focus:outline-none transition-colors rounded-t-lg`}
             >
               View
@@ -153,8 +153,8 @@ export default function SettingsModal({
               onClick={() => setTab('color')}
               className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'color'
-                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40'
+                  ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40'
               } focus:outline-none transition-colors rounded-t-lg`}
             >
               Color
@@ -165,8 +165,8 @@ export default function SettingsModal({
               onClick={() => setTab('about')}
               className={`flex-1 py-2 text-center border border-transparent ${
                 tab === 'about'
-                  ? 'text-white relative z-10 bg-zinc-900/75 border-t-zinc-600/40 border-l-zinc-600/40 rounded-tl-lg'
-                  : 'text-white/60 hover:text-white hover:bg-zinc-700/60 border-b-zinc-600/40 rounded-tl-lg'
+                  ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-l-zinc-600/40 rounded-tl-lg'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40 rounded-tl-lg'
               } focus:outline-none transition-colors`}
             >
               About
@@ -175,7 +175,7 @@ export default function SettingsModal({
         </div>
 
         {/* Tab Content - Expanded */}
-        <div className="relative px-6 pt-5 pb-6 flex-1 overflow-auto text-white space-y-3 scrollbar-thin bg-zinc-900/75">
+        <div className="relative px-6 pt-5 pb-6 flex-1 overflow-auto text-white space-y-3 scrollbar-thin bg-zinc-900">
           {tab === 'devices' ? (
             <BasicTab
               localVideo={localVideo}
@@ -200,7 +200,7 @@ export default function SettingsModal({
         </div>
 
         {/* Footer - Always Visible */}
-        <div className="px-6 py-4 relative flex justify-center space-x-4 no-drag bg-zinc-900/75">
+        <div className="px-6 py-4 relative flex justify-center space-x-4 no-drag bg-zinc-900">
           {/* Border line with spacing from edges */}
           <div className="absolute top-0 left-4 right-4 h-px bg-zinc-600/40" />
           {tab === 'devices' ? (

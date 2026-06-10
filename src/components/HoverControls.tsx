@@ -71,10 +71,11 @@ const HoverControls = React.memo(function HoverControls({
         <div
           className={`
             absolute bottom-6 no-drag ${animClass}
-            bg-gradient-to-br from-blue-500/70 to-green-600/70
+            bg-gradient-to-br from-blue-500 to-green-600
             px-4 h-12 rounded-full
             flex items-center justify-center cursor-default
             border border-green-500/70
+            shadow-[0_8px_24px_rgba(0,0,0,0.75)]
           `}
           style={{
             pointerEvents: visible ? 'auto' : 'none',

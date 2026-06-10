@@ -72,20 +72,21 @@ export default function HudButton({
   // the compositor and causes black flickering.
   const baseHud = `
     w-12 h-12 rounded-full flex items-center justify-center
+    shadow-[0_8px_24px_rgba(0,0,0,0.75)]
     transition-transform duration-200 ease-out
     group
   `;
 
   // Color variants (same look as before)
   const variantClass: Record<Variant, string> = {
-    gray: 'bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30',
+    gray: 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700',
     green: active
-      ? 'bg-gradient-to-br from-orange-500/70 to-red-600/70 hover:from-orange-500/80 hover:to-red-600/80 border border-red-500/30'
-      : 'bg-gradient-to-br from-blue-500/70 to-green-600/70 hover:from-blue-500/80 hover:to-green-600/80 border border-green-500/30',
-    red: 'bg-red-600/70 hover:bg-red-600/80 border border-red-500/30',
+      ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 border border-red-500'
+      : 'bg-gradient-to-br from-blue-500 to-green-600 hover:from-blue-400 hover:to-green-500 border border-green-500',
+    red: 'bg-red-600 hover:bg-red-500 border border-red-500',
     blue: active
-      ? 'bg-gradient-to-br from-purple-500/70 to-blue-600/70 hover:from-purple-500/80 hover:to-blue-600/80 border border-blue-500/30'
-      : 'bg-zinc-800/50 hover:bg-zinc-800/60 border border-zinc-700/30'
+      ? 'bg-gradient-to-br from-purple-500 to-blue-600 hover:from-purple-400 hover:to-blue-500 border border-blue-500'
+      : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700'
   };
 
   // Clear disabled look (darker, desaturated, no hover scale)

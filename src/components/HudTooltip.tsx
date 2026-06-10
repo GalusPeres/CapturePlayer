@@ -87,17 +87,17 @@ export function HudTooltip({
     >
       {/* Background layer with blur */}
       <div
-        className="
+        className={`
           absolute inset-0 rounded-md
-          bg-stone-700/80
-          border border-stone-600/30
-        "
+          bg-zinc-800 border border-zinc-700
+          shadow-[0_-6px_20px_rgba(0,0,0,0.8)]
+        `}
       />
       {/* Text layer kept separate so it stays crisp */}
       <div
         className="
           relative px-3 py-1 rounded-md
-          text-white text-xs shadow
+          text-white text-xs
           whitespace-pre
         "
       >

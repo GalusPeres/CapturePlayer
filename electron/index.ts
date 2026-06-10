@@ -58,12 +58,11 @@ ipcMain.handle('is-always-on-top', () => {
   return mainWin ? mainWin.isAlwaysOnTop() : false;
 });
 
-// IPC Handler: Toggle always on top state
-ipcMain.handle('toggle-always-on-top', () => {
+// IPC Handler: Set always on top to an explicit state.
+ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
   if (!mainWin) return false;
-  const now = !mainWin.isAlwaysOnTop();
-  mainWin.setAlwaysOnTop(now);
-  return now;
+  mainWin.setAlwaysOnTop(enabled);
+  return mainWin.isAlwaysOnTop();
 });
 
 // IPC Handler: Close application

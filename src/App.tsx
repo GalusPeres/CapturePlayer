@@ -11,7 +11,7 @@ declare global {
   interface Window {
     electronAPI: {
       isAlwaysOnTop: () => Promise<boolean>;
-      toggleAlwaysOnTop: () => Promise<boolean>;
+      setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
       closeApp: () => void;
       setAspectRatio?: (ratio: number | null) => void;
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
@@ -68,6 +68,16 @@ export default function App() {
     setCurrentAudioDevice(settings.audioDevice);
   }, [settings.videoDevice, settings.audioDevice]);
 
+  const setAlwaysOnTopState = useCallback(async (enabled: boolean) => {
+    try {
+      const pinned = await window.electronAPI.setAlwaysOnTop(enabled);
+      setAlwaysOnTop(pinned);
+      console.log(`📌 Always-on-top: ${pinned ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('❌ Always-on-top update failed:', error);
+    }
+  }, []);
+
   useEffect(() => {
     window.electronAPI.isAlwaysOnTop().then(setAlwaysOnTop);
     // Force reset zoom indicator on app start
@@ -101,13 +111,13 @@ export default function App() {
       // Optional: Automatically disable always-on-top when entering fullscreen
       if (isNowFullscreen && alwaysOnTop) {
         console.log('🔄 Fullscreen detected - disabling always-on-top');
-        handleAlwaysOnTop(); // Toggle off
+        void setAlwaysOnTopState(false);
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [alwaysOnTop]);
+  }, [alwaysOnTop, setAlwaysOnTopState]);
 
   // Reset cursor hide timer on any activity - only when running
   const resetCursorTimer = useCallback(() => {
@@ -265,21 +275,13 @@ export default function App() {
     }
   }, [currentAudioDevice, currentVideoDevice, isProcessing, running, start, stop]);
 
-  const handleAlwaysOnTop = useCallback(async () => {
-    // Block always-on-top in fullscreen mode
+  const handleAlwaysOnTop = useCallback(() => {
     if (isFullscreen) {
       console.log('⚠️ Always-on-top blocked in fullscreen mode');
       return;
     }
-
-    try {
-      const pinned = await window.electronAPI.toggleAlwaysOnTop();
-      setAlwaysOnTop(pinned);
-      console.log(`📌 Always-on-top: ${pinned ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      console.error('❌ Always-on-top toggle failed:', error);
-    }
-  }, [isFullscreen]);
+    void setAlwaysOnTopState(!alwaysOnTop);
+  }, [alwaysOnTop, isFullscreen, setAlwaysOnTopState]);
 
   const handleFullscreen = useCallback(
     () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()),
