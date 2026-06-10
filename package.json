@@ -1,6 +1,6 @@
 {
   "name": "captureplayer",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Electron + Vite + React + Tailwind CapturePlayer – Play your capture card instantly and share with Discord.",
   "author": {
     "name": "galusperes"
@@ -74,6 +74,31 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "icon": "src/assets/icons/icon.png",
+      "category": "public.app-category.entertainment",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "src/assets/icons/icon.png",
+      "category": "AudioVideo",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     }
   }
 }
