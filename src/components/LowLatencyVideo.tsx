@@ -39,12 +39,21 @@ type Props = {
   stream: MediaStream;
   zoomLevel: number;
   filters: GlFilterState;
+  diagnosticsEnabled: boolean;
   onResolution?: (res: { w: number; h: number; fps?: number } | null) => void;
   onDebugInfo?: (info: FrameStats | null) => void;
   onFallback: (reason: string) => void;
 };
 
-const LowLatencyVideo: React.FC<Props> = ({ stream, zoomLevel, filters, onResolution, onDebugInfo, onFallback }) => {
+const LowLatencyVideo: React.FC<Props> = ({
+  stream,
+  zoomLevel,
+  filters,
+  diagnosticsEnabled,
+  onResolution,
+  onDebugInfo,
+  onFallback
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Mutable inputs live in refs so settings/zoom changes do not restart the frame loop.
@@ -56,6 +65,8 @@ const LowLatencyVideo: React.FC<Props> = ({ stream, zoomLevel, filters, onResolu
   onResolutionRef.current = onResolution;
   const onDebugInfoRef = useRef(onDebugInfo);
   onDebugInfoRef.current = onDebugInfo;
+  const diagnosticsEnabledRef = useRef(diagnosticsEnabled);
+  diagnosticsEnabledRef.current = diagnosticsEnabled;
   const onFallbackRef = useRef(onFallback);
   onFallbackRef.current = onFallback;
 
@@ -149,14 +160,14 @@ const LowLatencyVideo: React.FC<Props> = ({ stream, zoomLevel, filters, onResolu
     };
 
     const publishStats = () => {
-      if (disposed || !onDebugInfoRef.current) return;
+      if (disposed) return;
 
       const elapsed = performance.now() - windowStart;
       const displayFps = elapsed > 0 ? (frameCount / elapsed) * 1000 : 0;
       const idleMs = lastFrameNow ? performance.now() - lastFrameNow : 0;
       const stalled = idleMs > Math.max(50, expectedFrameMs() * 2.5);
 
-      onDebugInfoRef.current({
+      const stats: FrameStats = {
         width,
         height,
         trackFps: trackFps(),
@@ -171,7 +182,34 @@ const LowLatencyVideo: React.FC<Props> = ({ stream, zoomLevel, filters, onResolu
         maxCaptureDelayMs: maxCaptureDelayMs || undefined,
         captureDelayKind,
         desynchronized: pipeline.desynchronized
-      });
+      };
+
+      onDebugInfoRef.current?.(stats);
+      pipeline.setDiagnostics(
+        diagnosticsEnabledRef.current
+          ? [
+              `${stats.width}x${stats.height}${stats.trackFps ? ` @${stats.trackFps} src` : ''}`,
+              'renderer: webgl low-latency',
+              `present: ${stats.desynchronized ? 'direct (desync)' : 'compositor'}`,
+              `display: ${stats.displayFps.toFixed(1)} fps`,
+              `frame: ${stats.lastFrameMs.toFixed(1)} ms`,
+              `max gap: ${stats.maxFrameMs.toFixed(1)} ms`,
+              ...(typeof stats.captureDelayMs === 'number'
+                ? [`${stats.captureDelayKind === 'queue' ? 'queue' : 'delay'}: ${stats.captureDelayMs.toFixed(1)} ms`]
+                : []),
+              ...(typeof stats.maxCaptureDelayMs === 'number'
+                ? [
+                    `max ${stats.captureDelayKind === 'queue' ? 'queue' : 'delay'}: ${stats.maxCaptureDelayMs.toFixed(
+                      1
+                    )} ms`
+                  ]
+                : []),
+              `idle: ${stats.idleMs.toFixed(1)} ms`,
+              `stalls: ${stats.stallCount}`,
+              `state: ${stats.stalled ? 'stalled' : 'ok'}`
+            ]
+          : null
+      );
 
       windowStart = performance.now();
       frameCount = 0;
@@ -179,7 +217,7 @@ const LowLatencyVideo: React.FC<Props> = ({ stream, zoomLevel, filters, onResolu
       stallCount = 0;
       maxCaptureDelayMs = 0;
     };
-    const statsIntervalId = window.setInterval(publishStats, 500);
+    const statsIntervalId = window.setInterval(publishStats, 1000);
 
     const readLoop = async () => {
       try {

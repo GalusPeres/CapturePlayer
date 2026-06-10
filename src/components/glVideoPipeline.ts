@@ -16,6 +16,7 @@ export type GlFilterState = {
 
 export type GlVideoPipeline = {
   render(frame: VideoFrame, filters: GlFilterState, zoom: number): void;
+  setDiagnostics(lines: string[] | null): void;
   dispose(): void;
   // Whether the browser actually granted the desynchronized (direct-present)
   // context - if false, frames still go through the regular compositor.
@@ -25,10 +26,11 @@ export type GlVideoPipeline = {
 const VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 a_pos;
 uniform vec2 u_scale;
+uniform vec2 u_offset;
 out vec2 v_uv;
 void main() {
   v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
-  gl_Position = vec4(a_pos * u_scale, 0.0, 1.0);
+  gl_Position = vec4(a_pos * u_scale + u_offset, 0.0, 1.0);
 }
 `;
 
@@ -41,6 +43,7 @@ uniform float u_contrast;
 uniform mat3 u_colorMatrix;
 uniform float u_sharpen;
 uniform float u_blur;
+uniform bool u_passthrough;
 in vec2 v_uv;
 out vec4 outColor;
 
@@ -71,6 +74,11 @@ vec3 sampleSource() {
 }
 
 void main() {
+  vec4 source = texture(u_tex, v_uv);
+  if (u_passthrough) {
+    outColor = source;
+    return;
+  }
   vec3 c = sampleSource();
   c *= u_brightness;
   c = (c - 0.5) * u_contrast + 0.5;
@@ -181,7 +189,13 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
   const texture = gl.createTexture();
+  const diagnosticsTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.bindTexture(gl.TEXTURE_2D, diagnosticsTexture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -189,19 +203,68 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
 
   const uniforms = {
     scale: gl.getUniformLocation(program, 'u_scale'),
+    offset: gl.getUniformLocation(program, 'u_offset'),
     texel: gl.getUniformLocation(program, 'u_texel'),
     brightness: gl.getUniformLocation(program, 'u_brightness'),
     contrast: gl.getUniformLocation(program, 'u_contrast'),
     colorMatrix: gl.getUniformLocation(program, 'u_colorMatrix'),
     sharpen: gl.getUniformLocation(program, 'u_sharpen'),
-    blur: gl.getUniformLocation(program, 'u_blur')
+    blur: gl.getUniformLocation(program, 'u_blur'),
+    passthrough: gl.getUniformLocation(program, 'u_passthrough')
   };
 
+  const diagnosticsCanvas = document.createElement('canvas');
+  diagnosticsCanvas.width = 1;
+  diagnosticsCanvas.height = 1;
+  const diagnosticsContext = diagnosticsCanvas.getContext('2d');
+  let diagnosticsCssWidth = 0;
+  let diagnosticsCssHeight = 0;
+  let diagnosticsVisible = false;
   let cachedSaturation: number | null = null;
   let cachedHue: number | null = null;
   let cachedCrisp = false;
   let lastLayoutKey = '';
   let disposed = false;
+
+  const setDiagnostics = (lines: string[] | null) => {
+    if (!diagnosticsContext || disposed) return;
+    diagnosticsVisible = !!lines;
+    if (!lines) return;
+
+    const dpr = canvas.clientWidth > 0 ? canvas.width / canvas.clientWidth : window.devicePixelRatio || 1;
+    const lineHeight = 19.5;
+    const paddingX = 12;
+    const paddingY = 8;
+    const radius = 6;
+    const font =
+      '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+    diagnosticsContext.font = font;
+    const contentWidth = Math.max(...lines.map((line) => diagnosticsContext.measureText(line).width));
+    diagnosticsCssWidth = Math.ceil(contentWidth + paddingX * 2);
+    diagnosticsCssHeight = paddingY * 2 + lines.length * lineHeight;
+    diagnosticsCanvas.width = Math.ceil(diagnosticsCssWidth * dpr);
+    diagnosticsCanvas.height = Math.ceil(diagnosticsCssHeight * dpr);
+
+    diagnosticsContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    diagnosticsContext.clearRect(0, 0, diagnosticsCssWidth, diagnosticsCssHeight);
+    diagnosticsContext.beginPath();
+    diagnosticsContext.roundRect(0.5, 0.5, diagnosticsCssWidth - 1, diagnosticsCssHeight - 1, radius);
+    diagnosticsContext.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    diagnosticsContext.fill();
+    diagnosticsContext.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    diagnosticsContext.lineWidth = 1;
+    diagnosticsContext.stroke();
+    diagnosticsContext.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    diagnosticsContext.font = font;
+    diagnosticsContext.textBaseline = 'middle';
+    lines.forEach((line, index) =>
+      diagnosticsContext.fillText(line, paddingX, paddingY + lineHeight / 2 + index * lineHeight)
+    );
+
+    gl.bindTexture(gl.TEXTURE_2D, diagnosticsTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, diagnosticsCanvas);
+  };
 
   const render = (frame: VideoFrame, filters: GlFilterState, zoom: number) => {
     const width = canvas.width;
@@ -233,6 +296,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
       lastLayoutKey = layoutKey;
     }
 
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     if (filters.crisp !== cachedCrisp) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filters.crisp ? gl.NEAREST : gl.LINEAR);
       cachedCrisp = filters.crisp;
@@ -241,11 +305,13 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frame as unknown as TexImageSource);
 
     gl.uniform2f(uniforms.scale, scaleX, scaleY);
+    gl.uniform2f(uniforms.offset, 0, 0);
     gl.uniform2f(uniforms.texel, 1 / videoWidth, 1 / videoHeight);
     gl.uniform1f(uniforms.brightness, filters.brightness);
     gl.uniform1f(uniforms.contrast, filters.contrast);
     gl.uniform1f(uniforms.sharpen, filters.sharpen);
     gl.uniform1f(uniforms.blur, filters.blurPx);
+    gl.uniform1i(uniforms.passthrough, 0);
 
     if (filters.saturation !== cachedSaturation || filters.hueDeg !== cachedHue) {
       const matrix = multiply3x3(hueRotateMatrix(filters.hueDeg), saturationMatrix(filters.saturation));
@@ -255,6 +321,24 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
     }
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    if (diagnosticsVisible) {
+      const pixelRatio = canvas.clientWidth > 0 ? width / canvas.clientWidth : 1;
+      const margin = Math.round(16 * pixelRatio);
+      const overlayWidth = Math.min(Math.round(diagnosticsCssWidth * pixelRatio), width - margin * 2);
+      const overlayHeight = Math.round(diagnosticsCssHeight * (overlayWidth / diagnosticsCssWidth));
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.viewport(margin, height - margin - overlayHeight, overlayWidth, overlayHeight);
+      gl.bindTexture(gl.TEXTURE_2D, diagnosticsTexture);
+      gl.uniform2f(uniforms.scale, 1, 1);
+      gl.uniform2f(uniforms.offset, 0, 0);
+      gl.uniform1i(uniforms.passthrough, 1);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disable(gl.BLEND);
+    }
+
     gl.flush();
   };
 
@@ -263,6 +347,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
     disposed = true;
     try {
       gl.deleteTexture(texture);
+      gl.deleteTexture(diagnosticsTexture);
       gl.deleteBuffer(quadBuffer);
       gl.deleteVertexArray(vao);
       gl.deleteProgram(program);
@@ -272,5 +357,5 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
     }
   };
 
-  return { render, dispose, desynchronized };
+  return { render, setDiagnostics, dispose, desynchronized };
 }

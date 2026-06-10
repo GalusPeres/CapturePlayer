@@ -69,31 +69,24 @@ const VideoCanvas: React.FC<Props> = ({
     return `url(#${filterId})`;
   };
 
-  const lastGlLogRef = useRef(0);
-  const handleGlDebugInfo = useCallback(
-    (info: FrameStats | null) => {
-      setDebugInfo(info);
-      if (!info) return;
-
-      const shouldLog =
-        settings.showDiagnosticsOverlay && (info.stalled || performance.now() - lastGlLogRef.current >= 2000);
-      if (shouldLog) {
-        window.electronAPI.debugFrameStats?.({
-          ...info,
-          displayFps: Number(info.displayFps.toFixed(1)),
-          lastFrameMs: Number(info.lastFrameMs.toFixed(1)),
-          maxFrameMs: Number(info.maxFrameMs.toFixed(1)),
-          idleMs: Number(info.idleMs.toFixed(1))
-        });
-        lastGlLogRef.current = performance.now();
-      }
-    },
-    [settings.showDiagnosticsOverlay]
-  );
-
   const handleGlFallback = useCallback((reason: string) => {
     console.warn('⚠️ Low-latency renderer unavailable, falling back to <video> element:', reason);
     setGlFailed(true);
+  }, []);
+
+  useEffect(() => {
+    setGlFailed(false);
+  }, [settings.lowLatencyRenderer, stream]);
+
+  useEffect(() => {
+    if (!import.meta.hot) return undefined;
+
+    const resetGlFallback = () => setGlFailed(false);
+    import.meta.hot.on('vite:afterUpdate', resetGlFallback);
+
+    return () => {
+      import.meta.hot?.off('vite:afterUpdate', resetGlFallback);
+    };
   }, []);
 
   // Measure video resolution and frame rate while the stream is running.
@@ -398,7 +391,7 @@ const VideoCanvas: React.FC<Props> = ({
     hueDeg: settings.hue,
     blurPx: effectiveSharpness < 100 ? Math.max(0, (100 - effectiveSharpness) / 50) : 0,
     sharpen: effectiveSharpness > 100 ? (effectiveSharpness - 100) / 100 : 0,
-    crisp: settings.fsrMode === 'enhanced'
+    crisp: false
   };
 
   // Fallback <video> styling. Only apply filter/transform when they actually do
@@ -445,8 +438,8 @@ const VideoCanvas: React.FC<Props> = ({
             stream={stream}
             zoomLevel={zoomLevel}
             filters={glFilters}
+            diagnosticsEnabled={isDev && settings.showDiagnosticsOverlay && running}
             onResolution={setResolution}
-            onDebugInfo={isDev ? handleGlDebugInfo : undefined}
             onFallback={handleGlFallback}
           />
         ) : (
@@ -460,7 +453,7 @@ const VideoCanvas: React.FC<Props> = ({
           />
         )}
 
-        {isDev && settings.showDiagnosticsOverlay && running && debugInfo && (
+        {isDev && settings.showDiagnosticsOverlay && running && !useGlRenderer && debugInfo && (
           <div
             className="
               absolute top-4 left-4 z-40
@@ -474,10 +467,7 @@ const VideoCanvas: React.FC<Props> = ({
               {debugInfo.width}x{debugInfo.height}
               {debugInfo.trackFps ? ` @${debugInfo.trackFps} src` : ''}
             </div>
-            <div>renderer: {useGlRenderer ? 'webgl low-latency' : 'video element'}</div>
-            {useGlRenderer && typeof debugInfo.desynchronized === 'boolean' && (
-              <div>present: {debugInfo.desynchronized ? 'direct (desync)' : 'compositor'}</div>
-            )}
+            <div>renderer: video element</div>
             <div>display: {debugInfo.displayFps.toFixed(1)} fps</div>
             <div>frame: {debugInfo.lastFrameMs.toFixed(1)} ms</div>
             <div>max gap: {debugInfo.maxFrameMs.toFixed(1)} ms</div>
