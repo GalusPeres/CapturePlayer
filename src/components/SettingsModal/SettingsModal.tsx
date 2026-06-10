@@ -210,7 +210,7 @@ export default function SettingsModal({
                   onClick={applyDevices}
                   className="px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white rounded-xl focus:outline-none transition-all"
                 >
-                  Apply Changes
+                  Apply
                 </button>
               )}
               <button
@@ -225,7 +225,7 @@ export default function SettingsModal({
                 } text-white rounded-xl focus:outline-none flex items-center gap-2 transition-all`}
               >
                 <img src={running ? stopIcon : playIcon} className="w-6 h-6" alt="" />
-                {running ? 'Stop Capture' : 'Start Capture'}
+                {running ? 'Stop' : 'Start'}
               </button>
             </>
           ) : tab === 'view' ? (
