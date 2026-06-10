@@ -71,7 +71,6 @@ const HoverControls = React.memo(function HoverControls({
         <div
           className={`
             absolute bottom-6 no-drag ${animClass}
-            backdrop-filter backdrop-blur-[6px]
             bg-gradient-to-br from-blue-500/70 to-green-600/70
             px-4 h-12 rounded-full
             flex items-center justify-center cursor-default

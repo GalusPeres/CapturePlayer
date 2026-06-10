@@ -89,7 +89,7 @@ export function HudTooltip({
       <div
         className="
           absolute inset-0 rounded-md
-          bg-stone-600/50 backdrop-blur-[6px]
+          bg-stone-700/80
           border border-stone-600/30
         "
       />

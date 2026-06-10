@@ -67,10 +67,11 @@ export default function HudButton({
     setHover(false);
   };
 
-  // Base HUD button style (blurred background + rounded + centered icon)
+  // Base HUD button style (rounded + centered icon). No backdrop-blur here:
+  // sampling the backdrop forces the low-latency video surface back through
+  // the compositor and causes black flickering.
   const baseHud = `
     w-12 h-12 rounded-full flex items-center justify-center
-    backdrop-filter backdrop-blur-[6px]
     transition-transform duration-200 ease-out
     group
   `;

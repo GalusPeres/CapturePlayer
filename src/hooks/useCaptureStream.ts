@@ -109,12 +109,17 @@ export function useCaptureStream() {
 
         console.log('🎥 Using devices:', { video: videoDev, audio: audioDev });
 
+        // Always request 1080p60 (ideal): without an explicit frameRate the
+        // browser may pick the capture card's default mode, which can be 30 fps.
         const videoConstraints =
           videoDev === ''
             ? false
-            : videoDev
-              ? { deviceId: { exact: videoDev } }
-              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } };
+            : {
+                ...(videoDev ? { deviceId: { exact: videoDev } } : {}),
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                frameRate: { ideal: 60 }
+              };
 
         const audioConstraints =
           audioDev === ''

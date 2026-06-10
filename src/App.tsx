@@ -414,7 +414,7 @@ export default function App() {
           className="
             absolute top-4 right-4 z-50
             px-3 py-2 rounded-md
-            bg-stone-600/50 backdrop-blur-[6px]
+            bg-stone-700/80
             border border-stone-600/30
             text-white text-sm font-medium shadow
             pointer-events-none

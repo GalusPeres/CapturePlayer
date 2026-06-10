@@ -1,6 +1,9 @@
 // src/components/VideoCanvas.tsx - Video display with color filters and resolution detection
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import LowLatencyVideo, { isLowLatencySupported } from './LowLatencyVideo';
+import type { FrameStats } from './LowLatencyVideo';
+import type { GlFilterState } from './glVideoPipeline';
 import playIcon from '../assets/icons/play.png';
 import settingsIcon from '../assets/icons/settings.svg';
 
@@ -14,36 +17,6 @@ export type Props = {
   isInitializing?: boolean;
 };
 
-type VideoDebugInfo = {
-  width: number;
-  height: number;
-  trackFps?: number;
-  displayFps: number;
-  lastFrameMs: number;
-  maxFrameMs: number;
-  idleMs: number;
-  stallCount: number;
-  presentedFrames: number;
-  stalled: boolean;
-  captureDelayMs?: number;
-  maxCaptureDelayMs?: number;
-};
-
-type FrameStatsPayload = {
-  width: number;
-  height: number;
-  trackFps?: number;
-  displayFps: number;
-  lastFrameMs: number;
-  maxFrameMs: number;
-  idleMs: number;
-  stallCount: number;
-  presentedFrames: number;
-  stalled: boolean;
-  captureDelayMs?: number;
-  maxCaptureDelayMs?: number;
-};
-
 const VideoCanvas: React.FC<Props> = ({
   stream,
   setResolution,
@@ -55,8 +28,14 @@ const VideoCanvas: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
-  const [debugInfo, setDebugInfo] = useState<VideoDebugInfo | null>(null);
+  const [debugInfo, setDebugInfo] = useState<FrameStats | null>(null);
+  const [glFailed, setGlFailed] = useState(false);
   const isDev = import.meta.env.DEV;
+
+  // Prefer the low-latency WebGL path (MediaStreamTrackProcessor + desynchronized
+  // canvas); fall back to the classic <video> element if it is unavailable or fails.
+  const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
+  const useGlRenderer = settings.lowLatencyRenderer && !glFailed && hasVideoTrack && isLowLatencySupported();
 
   // Image Enhancement Modes - GPU-accelerated, zero-latency
   const getEnhancementConfig = (mode: string) => {
@@ -90,13 +69,43 @@ const VideoCanvas: React.FC<Props> = ({
     return `url(#${filterId})`;
   };
 
+  const lastGlLogRef = useRef(0);
+  const handleGlDebugInfo = useCallback(
+    (info: FrameStats | null) => {
+      setDebugInfo(info);
+      if (!info) return;
+
+      const shouldLog =
+        settings.showDiagnosticsOverlay && (info.stalled || performance.now() - lastGlLogRef.current >= 2000);
+      if (shouldLog) {
+        window.electronAPI.debugFrameStats?.({
+          ...info,
+          displayFps: Number(info.displayFps.toFixed(1)),
+          lastFrameMs: Number(info.lastFrameMs.toFixed(1)),
+          maxFrameMs: Number(info.maxFrameMs.toFixed(1)),
+          idleMs: Number(info.idleMs.toFixed(1))
+        });
+        lastGlLogRef.current = performance.now();
+      }
+    },
+    [settings.showDiagnosticsOverlay]
+  );
+
+  const handleGlFallback = useCallback((reason: string) => {
+    console.warn('⚠️ Low-latency renderer unavailable, falling back to <video> element:', reason);
+    setGlFailed(true);
+  }, []);
+
   // Measure video resolution and frame rate while the stream is running.
   // This lets auto-aspect react to live signal changes without forcing a restart.
+  // Only used on the <video> fallback path - the WebGL path reports per frame.
   useEffect(() => {
+    if (useGlRenderer) return undefined;
+
     const video = videoRef.current;
     if (!video || !stream) {
       setResolution?.(null);
-      return;
+      return undefined;
     }
 
     let isActive = true;
@@ -177,19 +186,20 @@ const VideoCanvas: React.FC<Props> = ({
         video.cancelVideoFrameCallback(frameRequestId);
       }
     };
-  }, [setResolution, stream]);
+  }, [setResolution, stream, useGlRenderer]);
 
   // Dev-only video timing overlay to diagnose frame pacing and stalls.
+  // Only used on the <video> fallback path - the WebGL path reports via callback.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !stream || !isDev) {
-      setDebugInfo(null);
-      return;
+    if (useGlRenderer || !video || !stream || !isDev) {
+      if (!useGlRenderer) setDebugInfo(null);
+      return undefined;
     }
 
     if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
       setDebugInfo(null);
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -217,7 +227,7 @@ const VideoCanvas: React.FC<Props> = ({
       const expectedFrameMs = trackFps ? 1000 / trackFps : 16.7;
       const stalled = idleMs > Math.max(50, expectedFrameMs * 2.5);
 
-      const nextStats: FrameStatsPayload = {
+      const nextStats: FrameStats = {
         width: video.videoWidth || trackSettings?.width || 0,
         height: video.videoHeight || trackSettings?.height || 0,
         trackFps,
@@ -229,7 +239,8 @@ const VideoCanvas: React.FC<Props> = ({
         presentedFrames,
         stalled,
         captureDelayMs,
-        maxCaptureDelayMs: maxCaptureDelayMs || undefined
+        maxCaptureDelayMs: maxCaptureDelayMs || undefined,
+        captureDelayKind: 'absolute'
       };
 
       setDebugInfo(nextStats);
@@ -293,12 +304,14 @@ const VideoCanvas: React.FC<Props> = ({
         video.cancelVideoFrameCallback(frameRequestId);
       }
     };
-  }, [isDev, settings.showDiagnosticsOverlay, stream]);
+  }, [isDev, settings.showDiagnosticsOverlay, stream, useGlRenderer]);
 
-  // Set video stream source with cleanup
+  // Set video stream source with cleanup (<video> fallback path only)
   useEffect(() => {
+    if (useGlRenderer) return undefined;
+
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) return undefined;
 
     let cancelled = false;
     let assignedStream: MediaStream | null = null;
@@ -362,7 +375,7 @@ const VideoCanvas: React.FC<Props> = ({
         video.srcObject = null;
       }
     };
-  }, [stream]);
+  }, [stream, useGlRenderer]);
 
   // Get Enhancement configuration
   const enhanceConfig = getEnhancementConfig(settings.fsrMode);
@@ -377,9 +390,40 @@ const VideoCanvas: React.FC<Props> = ({
     return zoomLevel / 100; // Base zoom from Ctrl+Mouse Wheel
   };
 
+  // Shader-side filter state for the WebGL renderer (same semantics as the CSS filters).
+  const glFilters: GlFilterState = {
+    brightness: settings.brightness / 100,
+    contrast: effectiveContrast / 100,
+    saturation: settings.saturation / 100,
+    hueDeg: settings.hue,
+    blurPx: effectiveSharpness < 100 ? Math.max(0, (100 - effectiveSharpness) / 50) : 0,
+    sharpen: effectiveSharpness > 100 ? (effectiveSharpness - 100) / 100 : 0,
+    crisp: settings.fsrMode === 'enhanced'
+  };
+
+  // Fallback <video> styling. Only apply filter/transform when they actually do
+  // something - a no-op CSS filter still blocks hardware overlay promotion and
+  // costs an extra compositor pass (= more latency).
+  const filterParts: string[] = [];
+  if (settings.brightness !== 100) filterParts.push(`brightness(${settings.brightness}%)`);
+  if (effectiveContrast !== 100) filterParts.push(`contrast(${effectiveContrast}%)`);
+  if (settings.saturation !== 100) filterParts.push(`saturate(${settings.saturation}%)`);
+  if (settings.hue !== 0) filterParts.push(`hue-rotate(${settings.hue}deg)`);
+  if (effectiveSharpness !== 100) filterParts.push(getSharpnessFilter(effectiveSharpness));
+
+  const videoStyle: React.CSSProperties = {
+    imageRendering: enhanceConfig.imageRendering as any
+  };
+  if (filterParts.length > 0) {
+    videoStyle.filter = filterParts.join(' ');
+  }
+  if (zoomLevel !== 100) {
+    videoStyle.transform = `scale(${getScaleFactor()})`;
+  }
+
   return (
     <>
-      {/* SVG Filter for Sharpening */}
+      {/* SVG Filter for Sharpening (used by the <video> fallback path) */}
       <svg width="0" height="0" style={{ position: 'absolute' }}>
         <defs>
           <filter id={filterId}>
@@ -396,24 +440,25 @@ const VideoCanvas: React.FC<Props> = ({
       </svg>
 
       <div className="w-full h-full flex items-center justify-center bg-black relative">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-contain"
-          style={{
-            imageRendering: enhanceConfig.imageRendering as any,
-            filter: `
-              brightness(${settings.brightness}%)
-              contrast(${effectiveContrast}%)
-              saturate(${settings.saturation}%)
-              hue-rotate(${settings.hue}deg)
-              ${getSharpnessFilter(effectiveSharpness)}
-            `,
-            transform: `scale(${getScaleFactor()})`
-          }}
-        />
+        {useGlRenderer && stream ? (
+          <LowLatencyVideo
+            stream={stream}
+            zoomLevel={zoomLevel}
+            filters={glFilters}
+            onResolution={setResolution}
+            onDebugInfo={isDev ? handleGlDebugInfo : undefined}
+            onFallback={handleGlFallback}
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-contain"
+            style={videoStyle}
+          />
+        )}
 
         {isDev && settings.showDiagnosticsOverlay && running && debugInfo && (
           <div
@@ -429,12 +474,23 @@ const VideoCanvas: React.FC<Props> = ({
               {debugInfo.width}x{debugInfo.height}
               {debugInfo.trackFps ? ` @${debugInfo.trackFps} src` : ''}
             </div>
+            <div>renderer: {useGlRenderer ? 'webgl low-latency' : 'video element'}</div>
+            {useGlRenderer && typeof debugInfo.desynchronized === 'boolean' && (
+              <div>present: {debugInfo.desynchronized ? 'direct (desync)' : 'compositor'}</div>
+            )}
             <div>display: {debugInfo.displayFps.toFixed(1)} fps</div>
             <div>frame: {debugInfo.lastFrameMs.toFixed(1)} ms</div>
             <div>max gap: {debugInfo.maxFrameMs.toFixed(1)} ms</div>
-            {typeof debugInfo.captureDelayMs === 'number' && <div>delay: {debugInfo.captureDelayMs.toFixed(1)} ms</div>}
+            {typeof debugInfo.captureDelayMs === 'number' && (
+              <div>
+                {debugInfo.captureDelayKind === 'queue' ? 'queue' : 'delay'}: {debugInfo.captureDelayMs.toFixed(1)} ms
+              </div>
+            )}
             {typeof debugInfo.maxCaptureDelayMs === 'number' && (
-              <div>max delay: {debugInfo.maxCaptureDelayMs.toFixed(1)} ms</div>
+              <div>
+                max {debugInfo.captureDelayKind === 'queue' ? 'queue' : 'delay'}:{' '}
+                {debugInfo.maxCaptureDelayMs.toFixed(1)} ms
+              </div>
             )}
             <div>idle: {debugInfo.idleMs.toFixed(1)} ms</div>
             <div>stalls: {debugInfo.stallCount}</div>

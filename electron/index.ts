@@ -6,6 +6,8 @@ let mainWin: BrowserWindow | null = null;
 
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+// Keep capture frames in GPU memory (zero-copy) on their way to the renderer.
+app.commandLine.appendSwitch('video-capture-use-gpu-memory-buffer');
 
 function createMainWindow() {
   const win = new BrowserWindow({

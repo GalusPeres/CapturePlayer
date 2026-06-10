@@ -95,8 +95,7 @@ export default function SettingsModal({
     >
       <div
         className={`
-          bg-gradient-to-br from-blue-900/70 to-green-900/70
-          backdrop-blur-xl
+          bg-gradient-to-br from-blue-950/95 to-green-950/95
           rounded-2xl
           border border-zinc-700
           shadow-[0_0_70px_rgba(0,0,0,0.8)]
