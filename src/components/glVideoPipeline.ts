@@ -346,6 +346,15 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
     if (disposed) return;
     disposed = true;
     try {
+      // Paint the surface black before tearing it down: on desynchronized
+      // canvases the last presented frame can linger on screen for a moment
+      // after unmount (visible when switching renderers).
+      if (!gl.isContextLost()) {
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.flush();
+      }
       gl.deleteTexture(texture);
       gl.deleteTexture(diagnosticsTexture);
       gl.deleteBuffer(quadBuffer);

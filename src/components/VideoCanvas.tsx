@@ -30,6 +30,7 @@ const VideoCanvas: React.FC<Props> = ({
   const settings = useSettings();
   const [debugInfo, setDebugInfo] = useState<FrameStats | null>(null);
   const [glFailed, setGlFailed] = useState(false);
+  const [videoWarmup, setVideoWarmup] = useState(false);
   const isDev = import.meta.env.DEV;
 
   // Prefer the low-latency WebGL path (MediaStreamTrackProcessor + desynchronized
@@ -77,6 +78,18 @@ const VideoCanvas: React.FC<Props> = ({
   useEffect(() => {
     setGlFailed(false);
   }, [settings.lowLatencyRenderer, stream]);
+
+  // Overlay warmup window for the <video> path (see videoStyle below).
+  useEffect(() => {
+    if (useGlRenderer || !stream) return undefined;
+
+    setVideoWarmup(true);
+    const timeoutId = window.setTimeout(() => setVideoWarmup(false), 1500);
+    return () => {
+      clearTimeout(timeoutId);
+      setVideoWarmup(false);
+    };
+  }, [stream, useGlRenderer]);
 
   useEffect(() => {
     if (!import.meta.hot) return undefined;
@@ -394,9 +407,12 @@ const VideoCanvas: React.FC<Props> = ({
     crisp: false
   };
 
-  // Fallback <video> styling. Only apply filter/transform when they actually do
-  // something - a no-op CSS filter still blocks hardware overlay promotion and
-  // costs an extra compositor pass (= more latency).
+  // Fallback <video> styling. Filters are only applied when they do something
+  // (a no-op filter blocks the fast hardware-overlay path) - EXCEPT during the
+  // short warmup right after capture starts: promoting the video to an overlay
+  // while layout and playback are still settling showed the picture misplaced
+  // in a corner for about a second. A neutral filter keeps the video composited
+  // until things have settled, then the fast path takes over.
   const filterParts: string[] = [];
   if (settings.brightness !== 100) filterParts.push(`brightness(${settings.brightness}%)`);
   if (effectiveContrast !== 100) filterParts.push(`contrast(${effectiveContrast}%)`);
@@ -409,6 +425,8 @@ const VideoCanvas: React.FC<Props> = ({
   };
   if (filterParts.length > 0) {
     videoStyle.filter = filterParts.join(' ');
+  } else if (videoWarmup) {
+    videoStyle.filter = 'brightness(100%)';
   }
   if (zoomLevel !== 100) {
     videoStyle.transform = `scale(${getScaleFactor()})`;

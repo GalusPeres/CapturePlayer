@@ -107,8 +107,9 @@ const DEFAULT_SETTINGS = {
   customAspectPresets: [],
   customRatios: [],
   autostartWithDevices: false,
-  showDiagnosticsOverlay: true,
-  lowLatencyRenderer: true
+  showDiagnosticsOverlay: false,
+  // Experimental render path - opt-in.
+  lowLatencyRenderer: false
 };
 
 type StoredSettings = typeof DEFAULT_SETTINGS;

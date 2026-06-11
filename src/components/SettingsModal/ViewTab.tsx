@@ -31,12 +31,20 @@ export function DisplayTab({
   // vsyncDisabled true = app starts with 'disable-gpu-vsync'.
   const [vsyncDisabled, setVsyncDisabled] = useState(false);
   const [vsyncDisabledActive, setVsyncDisabledActive] = useState(false);
+  const [devRestartHint, setDevRestartHint] = useState(false);
 
   useEffect(() => {
-    window.electronAPI.getDisableGpuVsync?.().then((state) => {
-      setVsyncDisabled(state.enabled);
-      setVsyncDisabledActive(state.active);
-    });
+    const readVsyncState = () => {
+      window.electronAPI.getDisableGpuVsync?.().then((state) => {
+        setVsyncDisabled(state.enabled);
+        setVsyncDisabledActive(state.active);
+      });
+    };
+
+    readVsyncState();
+    // Re-read when the footer Reset button restores the vsync default.
+    window.addEventListener('captureplayer:vsync-changed', readVsyncState);
+    return () => window.removeEventListener('captureplayer:vsync-changed', readVsyncState);
   }, []);
 
   const toggleVsync = () => {
@@ -263,12 +271,19 @@ export function DisplayTab({
 
           {vsyncNeedsRestart && (
             <div className="flex items-center justify-between gap-3 text-xs bg-amber-900/30 border border-amber-700/40 text-amber-200/90 px-3 py-2 rounded-md">
-              <span>Restart required to turn VSync {vsyncOn ? 'on' : 'off'}.</span>
+              <span>
+                {devRestartHint
+                  ? 'Dev mode: restart npm run dev manually.'
+                  : `Restart required to turn VSync ${vsyncOn ? 'on' : 'off'}.`}
+              </span>
               {/* Self-relaunch only works in the packaged app; in dev the Vite
-                  server dies with the process, so just show the hint. */}
-              {!isDev && (
+                  server dies with the process, so the click swaps to a hint. */}
+              {!devRestartHint && (
                 <button
-                  onClick={() => window.electronAPI.relaunchApp?.()}
+                  onClick={async () => {
+                    const ok = await window.electronAPI.relaunchApp?.();
+                    if (ok === false) setDevRestartHint(true);
+                  }}
                   className="shrink-0 px-3 py-1 rounded-md bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white focus:outline-none transition-all"
                 >
                   Restart now
@@ -353,6 +368,12 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
     } else {
       settings.setZoomLevel(100);
     }
+    // Advanced section defaults
+    settings.setLowLatencyRenderer(false);
+    settings.setShowDiagnosticsOverlay(false);
+    void window.electronAPI.setDisableGpuVsync?.(false);
+    // The vsync checkbox holds local state inside DisplayTab - tell it to re-read.
+    window.dispatchEvent(new Event('captureplayer:vsync-changed'));
   };
 
   const canCreateCustom =
