@@ -98,9 +98,71 @@ ipcMain.handle('close-app', () => {
   app.quit();
 });
 
-// IPC Handler: native fullscreen toggle
+// IPC Handler: native fullscreen toggle. The windowed bounds are remembered
+// on entering so the drag-out below can restore the exact previous size.
+let lastWindowedBounds: Electron.Rectangle | null = null;
+
 ipcMain.handle('set-fullscreen', (_event, enabled: boolean) => {
-  mainWin?.setFullScreen(!!enabled);
+  const win = mainWin;
+  if (!win) return;
+  if (enabled && !win.isFullScreen()) {
+    lastWindowedBounds = win.getBounds();
+  }
+  win.setFullScreen(!!enabled);
+});
+
+// Manual window drag: pulls the window out of fullscreen while keeping it
+// under the cursor (native app-region dragging cannot start from fullscreen).
+// The aspect-ratio lock is suspended for the duration and the size pinned on
+// every move - otherwise Electron's ratio enforcement re-sizes the window a
+// little on each position change and it visibly grows while dragging.
+let dragSession: { offsetX: number; offsetY: number; width: number; height: number } | null = null;
+
+ipcMain.handle('begin-fullscreen-drag', (_event, cursor: { x: number; y: number }) => {
+  const win = mainWin;
+  if (!win || !win.isFullScreen()) return;
+
+  // Keep the cursor at the same relative horizontal position on the restored
+  // window as it had on the screen (like Windows does for maximized windows).
+  const fsBounds = win.getBounds();
+  const grabFraction = Math.min(1, Math.max(0, (cursor.x - fsBounds.x) / Math.max(1, fsBounds.width)));
+
+  win.once('leave-full-screen', () => {
+    win.setAspectRatio(0);
+    // Use the size the window had before entering fullscreen - at this point
+    // Electron has not necessarily restored it yet.
+    const bounds = lastWindowedBounds ?? win.getBounds();
+    dragSession = {
+      offsetX: Math.round(bounds.width * grabFraction),
+      offsetY: 16,
+      width: bounds.width,
+      height: bounds.height
+    };
+    win.setBounds({
+      x: Math.round(cursor.x - dragSession.offsetX),
+      y: Math.round(cursor.y - dragSession.offsetY),
+      width: dragSession.width,
+      height: dragSession.height
+    });
+  });
+  win.setFullScreen(false);
+});
+
+ipcMain.on('fullscreen-drag-move', (_event, cursor: { x: number; y: number }) => {
+  if (!mainWin || !dragSession) return;
+  mainWin.setBounds({
+    x: Math.round(cursor.x - dragSession.offsetX),
+    y: Math.round(cursor.y - dragSession.offsetY),
+    width: dragSession.width,
+    height: dragSession.height
+  });
+});
+
+ipcMain.on('fullscreen-drag-end', () => {
+  if (mainWin && dragSession) {
+    mainWin.setAspectRatio(lastAspectRatio);
+  }
+  dragSession = null;
 });
 
 ipcMain.on('debug-frame-stats', (_event, payload: unknown) => {
@@ -116,13 +178,15 @@ ipcMain.on('debug-audio-stats', (_event, payload: unknown) => {
 });
 
 // IPC Handler: Set window aspect ratio
+let lastAspectRatio = 0;
+
 ipcMain.handle('set-aspect-ratio', (_event, ratio: number | null) => {
+  lastAspectRatio = ratio || 0;
   if (mainWin) {
-    if (ratio) {
-      mainWin.setAspectRatio(ratio);
-    } else {
-      // "0" or "null" = no fixed aspect ratio
-      mainWin.setAspectRatio(0);
+    // While a manual drag runs, the ratio lock stays suspended; it is
+    // restored from lastAspectRatio when the drag ends.
+    if (!dragSession) {
+      mainWin.setAspectRatio(lastAspectRatio);
     }
   }
 });

@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeApp: () => ipcRenderer.invoke('close-app'),
   setAspectRatio: (ratio: number | null) => ipcRenderer.invoke('set-aspect-ratio', ratio),
   setFullscreen: (enabled: boolean) => ipcRenderer.invoke('set-fullscreen', enabled),
+  beginFullscreenDrag: (cursor: { x: number; y: number }) => ipcRenderer.invoke('begin-fullscreen-drag', cursor),
+  fullscreenDragMove: (cursor: { x: number; y: number }) => ipcRenderer.send('fullscreen-drag-move', cursor),
+  fullscreenDragEnd: () => ipcRenderer.send('fullscreen-drag-end'),
   onFullscreenChanged: (callback: (fullscreen: boolean) => void) => {
     const listener = (_event: unknown, fullscreen: boolean) => callback(fullscreen);
     ipcRenderer.on('fullscreen-changed', listener);

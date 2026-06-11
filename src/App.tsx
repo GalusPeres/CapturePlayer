@@ -16,6 +16,9 @@ declare global {
       setAspectRatio?: (ratio: number | null) => void;
       setFullscreen?: (enabled: boolean) => Promise<void>;
       onFullscreenChanged?: (callback: (fullscreen: boolean) => void) => () => void;
+      beginFullscreenDrag?: (cursor: { x: number; y: number }) => Promise<void>;
+      fullscreenDragMove?: (cursor: { x: number; y: number }) => void;
+      fullscreenDragEnd?: () => void;
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
       debugFrameStats?: (payload: unknown) => void;
       debugAudioStats?: (payload: unknown) => void;
@@ -448,7 +451,7 @@ export default function App() {
       onMouseEnter={handlePointerEnter}
       onMouseLeave={handlePointerLeave}
     >
-      <DragBar />
+      <DragBar isFullscreen={isFullscreen} />
 
       <VideoCanvas
         stream={stream}
