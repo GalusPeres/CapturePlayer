@@ -4,7 +4,7 @@
 // one immediately on a desynchronized WebGL canvas instead of a <video> element.
 import React, { useEffect, useRef } from 'react';
 import { createGlVideoPipeline } from './glVideoPipeline';
-import type { GlFilterState } from './glVideoPipeline';
+import type { GlFilterState, GlVideoPipeline } from './glVideoPipeline';
 
 export type FrameStats = {
   width: number;
@@ -90,35 +90,18 @@ const LowLatencyVideo: React.FC<Props> = ({
       return undefined;
     }
 
-    let pipeline: ReturnType<typeof createGlVideoPipeline>;
-    try {
-      pipeline = createGlVideoPipeline(canvas);
-    } catch (error) {
-      console.warn('Low-latency WebGL pipeline init failed:', error);
-      reader.cancel().catch(() => undefined);
-      fail('webgl-init');
-      return undefined;
-    }
-    console.log(`🎞️ Low-latency renderer active, desynchronized canvas: ${pipeline.desynchronized}`);
+    // The pipeline is created lazily on the first frame: the canvas backing
+    // store is fixed to the source resolution and CSS (object-contain) does
+    // the scaling to the window. Resizing a desynchronized canvas after
+    // context creation left the presented surface stuck at its initial size
+    // (frame glued to the top-left corner on startup).
+    let pipeline: GlVideoPipeline | null = null;
 
     const onContextLost = (event: Event) => {
       event.preventDefault();
       fail('webgl-context-lost');
     };
     canvas.addEventListener('webglcontextlost', onContextLost);
-
-    const syncCanvasSize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      const height = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-    };
-    syncCanvasSize();
-    const resizeObserver = new ResizeObserver(syncCanvasSize);
-    resizeObserver.observe(canvas);
 
     // Frame statistics shared between the read loop and the publish interval.
     let lastFrameNow = 0;
@@ -160,7 +143,7 @@ const LowLatencyVideo: React.FC<Props> = ({
     };
 
     const publishStats = () => {
-      if (disposed) return;
+      if (disposed || !pipeline) return;
 
       const elapsed = performance.now() - windowStart;
       const displayFps = elapsed > 0 ? (frameCount / elapsed) * 1000 : 0;
@@ -251,6 +234,24 @@ const LowLatencyVideo: React.FC<Props> = ({
           width = frame.displayWidth;
           height = frame.displayHeight;
 
+          if (!pipeline) {
+            canvas.width = width;
+            canvas.height = height;
+            try {
+              pipeline = createGlVideoPipeline(canvas);
+              console.log(`🎞️ Low-latency renderer active, desynchronized canvas: ${pipeline.desynchronized}`);
+            } catch (error) {
+              console.warn('Low-latency WebGL pipeline init failed:', error);
+              frame.close();
+              fail('webgl-init');
+              break;
+            }
+          } else if (canvas.width !== width || canvas.height !== height) {
+            // Source format changed (rare) - resize to the new native resolution.
+            canvas.width = width;
+            canvas.height = height;
+          }
+
           const metadata = (frame as VideoFrameWithMetadata).metadata?.();
           const timestampMs = Number.isFinite(frame.timestamp) ? frame.timestamp / 1000 : undefined;
 
@@ -303,16 +304,15 @@ const LowLatencyVideo: React.FC<Props> = ({
     return () => {
       disposed = true;
       window.clearInterval(statsIntervalId);
-      resizeObserver.disconnect();
       canvas.removeEventListener('webglcontextlost', onContextLost);
       reader.cancel().catch(() => undefined);
-      pipeline.dispose();
+      pipeline?.dispose();
       onResolutionRef.current?.(null);
       onDebugInfoRef.current?.(null);
     };
   }, [stream]);
 
-  return <canvas ref={canvasRef} className="block w-full h-full" />;
+  return <canvas ref={canvasRef} className="block w-full h-full object-contain" />;
 };
 
 export default LowLatencyVideo;

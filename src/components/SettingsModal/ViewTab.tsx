@@ -1,6 +1,7 @@
-// src/components/SettingsModal/DisplayTab.tsx - Aspect ratio and zoom controls
-import React from 'react';
+﻿// src/components/SettingsModal/DisplayTab.tsx - Aspect ratio and zoom controls
+import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import InfoHint from './InfoHint';
 
 const aspectModes = [
   { value: 'auto', label: 'Auto' },
@@ -24,6 +25,28 @@ export function DisplayTab({
 }: Props = {}) {
   const settings = useSettings();
   const isDev = import.meta.env.DEV;
+
+  // VSync launch flag. Lives in the main process (launch settings), not in
+  // localStorage, because it must be applied before the app starts.
+  // vsyncDisabled true = app starts with 'disable-gpu-vsync'.
+  const [vsyncDisabled, setVsyncDisabled] = useState(false);
+  const [vsyncDisabledActive, setVsyncDisabledActive] = useState(false);
+
+  useEffect(() => {
+    window.electronAPI.getDisableGpuVsync?.().then((state) => {
+      setVsyncDisabled(state.enabled);
+      setVsyncDisabledActive(state.active);
+    });
+  }, []);
+
+  const toggleVsync = () => {
+    const next = !vsyncDisabled;
+    setVsyncDisabled(next);
+    void window.electronAPI.setDisableGpuVsync?.(next);
+  };
+
+  const vsyncOn = !vsyncDisabled;
+  const vsyncNeedsRestart = vsyncDisabled !== vsyncDisabledActive;
 
   // Determine current aspect ratio mode
   let aspectMode: string = settings.autoAspectRatio ? 'auto' : settings.manualAspectRatio;
@@ -75,7 +98,18 @@ export function DisplayTab({
     <>
       {/* Aspect Ratio Presets */}
       <div>
-        <div className="mb-1">Aspect Ratio Presets:</div>
+        <div className="mb-1">
+          <InfoHint
+            info={
+              <>
+                Custom ratio: pick <span className="text-white">"Free"</span>, resize the window, then click{' '}
+                <span className="text-white">"Create ..."</span>
+              </>
+            }
+          >
+            <span className="cursor-help">Aspect Ratio Presets:</span>
+          </InfoHint>
+        </div>
         <div className="flex flex-wrap gap-2">
           {aspectModes.map((opt) => (
             <button
@@ -106,23 +140,20 @@ export function DisplayTab({
             </button>
           ))}
         </div>
-
-        {/* Info text */}
-        <div className="mt-2">
-          <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> To create <span className="text-white">custom</span> aspect ratios:
-            select <span className="text-white">"Free"</span> mode, resize window with mouse, then click{' '}
-            <span className="text-white">"Create ..."</span> button. <span className="text-white">Presets</span> have
-            fixed aspect ratios and can be deleted with <span className="text-white">"Delete ..."</span> button when
-            selected.
-          </div>
-        </div>
       </div>
 
       {/* Zoom Control */}
       <div>
         <div className="flex items-center gap-3">
-          <label className="w-20 shrink-0">Zoom:</label>
+          <InfoHint
+            info={
+              <>
+                <span className="text-white">Ctrl + Mouse Wheel</span> zooms anytime
+              </>
+            }
+          >
+            <label className="shrink-0 cursor-help">Zoom:</label>
+          </InfoHint>
           <input
             type="range"
             min={50}
@@ -149,91 +180,134 @@ export function DisplayTab({
           />
           <span className="w-12 text-right shrink-0">{isFullscreen ? fullscreenZoom : settings.zoomLevel}%</span>
         </div>
-
-        {/* Info text */}
-        <div className="mt-2">
-          <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> Use <span className="text-white">Ctrl+Mouse Wheel</span> to zoom
-            while streaming
-          </div>
-        </div>
       </div>
 
-      {/* Renderer */}
+      {/* Advanced */}
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label>Renderer:</label>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
-            className={`
-              w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
-              ${
-                settings.lowLatencyRenderer
-                  ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
-                  : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
-              }
-              focus:outline-none focus:ring-2 focus:ring-blue-500/50
-            `}
-          >
-            {settings.lowLatencyRenderer && (
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </button>
-          <span
-            onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
-            className="text-sm text-white/90 cursor-pointer select-none"
-          >
-            Low-latency renderer (recommended)
-          </span>
-        </div>
-
-        {/* Info text */}
-        <div className="mt-2">
-          <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> Presents capture frames{' '}
-            <span className="text-white">immediately</span> for minimal input lag. Disable only if you notice rendering
-            glitches.
-          </div>
-        </div>
-      </div>
-
-      {isDev && (
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label>Diagnostics Overlay:</label>
-          </div>
+        <div className="mb-1">Advanced:</div>
+        <div className="flex flex-col gap-2">
+          {/* Low-latency renderer */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
+              onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
               className={`
                 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
                 ${
-                  settings.showDiagnosticsOverlay
+                  settings.lowLatencyRenderer
                     ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
                     : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
                 }
                 focus:outline-none focus:ring-2 focus:ring-blue-500/50
               `}
             >
-              {settings.showDiagnosticsOverlay && (
+              {settings.lowLatencyRenderer && (
                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               )}
             </button>
-            <span
-              onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
-              className="text-sm text-white/90 cursor-pointer select-none"
+            <InfoHint
+              info={
+                <>
+                  Alternative video renderer. Can reduce input lag on 60 Hz displays with VSync on. Turn off if you see
+                  glitches.
+                </>
+              }
             >
-              Show diagnostics overlay
-            </span>
+              <span
+                onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
+                className="text-sm text-white/90 cursor-pointer select-none"
+              >
+                WebGL renderer (experimental)
+              </span>
+            </InfoHint>
           </div>
+
+          {/* VSync (launch flag, needs restart) */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleVsync}
+              className={`
+                w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
+                ${
+                  vsyncOn
+                    ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
+                    : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
+                }
+                focus:outline-none focus:ring-2 focus:ring-blue-500/50
+              `}
+            >
+              {vsyncOn && (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+            <InfoHint
+              info={
+                <>
+                  <span className="block whitespace-nowrap">
+                    <span className="text-white">On:</span> no tearing, best for 60 Hz
+                  </span>
+                  <span className="block whitespace-nowrap">
+                    <span className="text-white">Off:</span> less input lag, for high-refresh/G-Sync
+                  </span>
+                </>
+              }
+            >
+              <span onClick={toggleVsync} className="text-sm text-white/90 cursor-pointer select-none">
+                VSync
+              </span>
+            </InfoHint>
+          </div>
+
+          {vsyncNeedsRestart && (
+            <div className="flex items-center justify-between gap-3 text-xs bg-amber-900/30 border border-amber-700/40 text-amber-200/90 px-3 py-2 rounded-md">
+              <span>Restart required to turn VSync {vsyncOn ? 'on' : 'off'}.</span>
+              {/* Self-relaunch only works in the packaged app; in dev the Vite
+                  server dies with the process, so just show the hint. */}
+              {!isDev && (
+                <button
+                  onClick={() => window.electronAPI.relaunchApp?.()}
+                  className="shrink-0 px-3 py-1 rounded-md bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white focus:outline-none transition-all"
+                >
+                  Restart now
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Diagnostics overlay (dev only) */}
+          {isDev && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
+                className={`
+                  w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
+                  ${
+                    settings.showDiagnosticsOverlay
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
+                      : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
+                  }
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/50
+                `}
+              >
+                {settings.showDiagnosticsOverlay && (
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <span
+                onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
+                className="text-sm text-white/90 cursor-pointer select-none"
+              >
+                Show diagnostics overlay
+              </span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </>
   );
 }

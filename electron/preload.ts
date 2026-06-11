@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAspectRatio: (ratio: number | null) => ipcRenderer.invoke('set-aspect-ratio', ratio),
   debugFrameStats: (payload: unknown) => ipcRenderer.send('debug-frame-stats', payload),
   debugAudioStats: (payload: unknown) => ipcRenderer.send('debug-audio-stats', payload),
+  // Opt-in vsync-off launch flag (lower input lag, needs restart)
+  getDisableGpuVsync: () => ipcRenderer.invoke('get-disable-gpu-vsync'),
+  setDisableGpuVsync: (enabled: boolean) => ipcRenderer.invoke('set-disable-gpu-vsync', enabled),
+  relaunchApp: () => ipcRenderer.invoke('relaunch-app'),
   // Open external links (GitHub, Ko-fi etc.)
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 });

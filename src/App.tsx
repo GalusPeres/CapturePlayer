@@ -17,6 +17,9 @@ declare global {
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
       debugFrameStats?: (payload: unknown) => void;
       debugAudioStats?: (payload: unknown) => void;
+      getDisableGpuVsync?: () => Promise<{ enabled: boolean; active: boolean }>;
+      setDisableGpuVsync?: (enabled: boolean) => Promise<boolean>;
+      relaunchApp?: () => Promise<boolean>;
     };
   }
 }

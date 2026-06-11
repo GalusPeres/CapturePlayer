@@ -1,6 +1,7 @@
 // src/components/SettingsModal/ColorTab.tsx - Color profile and adjustment controls
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import InfoHint from './InfoHint';
 
 // Base enhancement modes
 const baseEnhancementModes = [
@@ -239,7 +240,17 @@ export function ColorTab() {
     <>
       {/* Color Presets */}
       <div>
-        <div className="mb-1">Color Presets:</div>
+        <div className="mb-1">
+          <InfoHint
+            info={
+              <>
+                <span className="text-white">Double-click</span> a preset to rename it. Changes save automatically.
+              </>
+            }
+          >
+            <span className="cursor-help">Color Presets:</span>
+          </InfoHint>
+        </div>
         <div className="flex flex-wrap gap-2">
           {/* Base profiles */}
           {baseEnhancementModes.map((mode) => (
@@ -282,30 +293,21 @@ export function ColorTab() {
             }
 
             return (
-              <button
-                key={profile.id}
-                className={`px-3 py-1 rounded-full border text-sm ${
-                  isActive
-                    ? 'bg-gradient-to-br from-purple-500 to-blue-600 border-purple-500 text-white'
-                    : 'bg-gradient-to-br from-purple-500/20 to-blue-600/20 border-purple-500/30 text-white/80 hover:text-white hover:from-purple-500/40 hover:to-blue-600/40'
-                } focus:outline-none transition-all`}
-                onClick={() => applyCustomProfile(profile.id)}
-                onDoubleClick={() => startEditingProfile(profile.id, profile.name)}
-                title="Double-click to rename"
-              >
-                {profile.name}
-              </button>
+              <InfoHint key={profile.id} info={<>Double-click to rename</>}>
+                <button
+                  className={`px-3 py-1 rounded-full border text-sm ${
+                    isActive
+                      ? 'bg-gradient-to-br from-purple-500 to-blue-600 border-purple-500 text-white'
+                      : 'bg-gradient-to-br from-purple-500/20 to-blue-600/20 border-purple-500/30 text-white/80 hover:text-white hover:from-purple-500/40 hover:to-blue-600/40'
+                  } focus:outline-none transition-all`}
+                  onClick={() => applyCustomProfile(profile.id)}
+                  onDoubleClick={() => startEditingProfile(profile.id, profile.name)}
+                >
+                  {profile.name}
+                </button>
+              </InfoHint>
             );
           })}
-        </div>
-
-        {/* Info text */}
-        <div className="mt-2">
-          <div className="text-xs text-white/60 bg-zinc-800/50 px-3 py-2 rounded-md border border-zinc-700">
-            <span className="text-white">💡</span> You can <span className="text-white">doubleclick</span> on purple{' '}
-            <span className="text-white">presets</span> to rename them. Everything is{' '}
-            <span className="text-white">automatically saved</span>.
-          </div>
         </div>
       </div>
 

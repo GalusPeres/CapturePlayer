@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { SimpleSelectOption, SimpleSelect } from '../SimpleSelect';
+import InfoHint from './InfoHint';
 
 type SignalInfo = { w: number; h: number; fps?: number } | null;
 
@@ -169,43 +170,33 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
       </div>
 
       {/* Autostart with Devices */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label>Autostart on App Launch:</label>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              const newValue = !settings.autostartWithDevices;
-              settings.setAutostartWithDevices(newValue);
-              // Disable autostart when devices change
-              if (newValue && (localVideo !== settings.videoDevice || localAudio !== settings.audioDevice)) {
-                // Will be disabled automatically on apply since devices are different
-              }
-            }}
-            className={`
-              w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
-              ${
-                settings.autostartWithDevices
-                  ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
-                  : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
-              }
-              focus:outline-none focus:ring-2 focus:ring-blue-500/50
-            `}
-          >
-            {settings.autostartWithDevices && (
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => settings.setAutostartWithDevices(!settings.autostartWithDevices)}
+          className={`
+            w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
+            ${
+              settings.autostartWithDevices
+                ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
+                : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
+            }
+            focus:outline-none focus:ring-2 focus:ring-blue-500/50
+          `}
+        >
+          {settings.autostartWithDevices && (
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+        <InfoHint info={<>Uses the last selected devices</>}>
           <span
             onClick={() => settings.setAutostartWithDevices(!settings.autostartWithDevices)}
             className="text-sm text-white/90 cursor-pointer select-none"
           >
-            Start capture (using last selected devices)
+            Start capture on app launch
           </span>
-        </div>
+        </InfoHint>
       </div>
     </>
   );
