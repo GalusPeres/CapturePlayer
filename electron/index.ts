@@ -63,6 +63,11 @@ function createMainWindow() {
     win.show();
   });
 
+  // Native fullscreen switches instantly (no slow browser-fullscreen
+  // animation); the renderer is told about changes to keep its UI in sync.
+  win.on('enter-full-screen', () => win.webContents.send('fullscreen-changed', true));
+  win.on('leave-full-screen', () => win.webContents.send('fullscreen-changed', false));
+
   win.on('closed', () => {
     mainWin = null;
   });
@@ -91,6 +96,11 @@ ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
 // IPC Handler: Close application
 ipcMain.handle('close-app', () => {
   app.quit();
+});
+
+// IPC Handler: native fullscreen toggle
+ipcMain.handle('set-fullscreen', (_event, enabled: boolean) => {
+  mainWin?.setFullScreen(!!enabled);
 });
 
 ipcMain.on('debug-frame-stats', (_event, payload: unknown) => {

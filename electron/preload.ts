@@ -7,6 +7,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
   closeApp: () => ipcRenderer.invoke('close-app'),
   setAspectRatio: (ratio: number | null) => ipcRenderer.invoke('set-aspect-ratio', ratio),
+  setFullscreen: (enabled: boolean) => ipcRenderer.invoke('set-fullscreen', enabled),
+  onFullscreenChanged: (callback: (fullscreen: boolean) => void) => {
+    const listener = (_event: unknown, fullscreen: boolean) => callback(fullscreen);
+    ipcRenderer.on('fullscreen-changed', listener);
+    return () => {
+      ipcRenderer.removeListener('fullscreen-changed', listener);
+    };
+  },
   debugFrameStats: (payload: unknown) => ipcRenderer.send('debug-frame-stats', payload),
   debugAudioStats: (payload: unknown) => ipcRenderer.send('debug-audio-stats', payload),
   // Opt-in vsync-off launch flag (lower input lag, needs restart)

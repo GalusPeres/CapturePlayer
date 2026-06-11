@@ -281,7 +281,10 @@ export function ColorTab() {
                     onChange={(e) => setTempProfileName(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') saveProfileName();
-                      else if (e.key === 'Escape') cancelEditingProfile();
+                      else if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        cancelEditingProfile();
+                      }
                     }}
                     onBlur={saveProfileName}
                     className="px-3 py-1 rounded-full border border-blue-500 bg-zinc-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[80px]"

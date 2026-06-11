@@ -14,6 +14,8 @@ declare global {
       setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
       closeApp: () => void;
       setAspectRatio?: (ratio: number | null) => void;
+      setFullscreen?: (enabled: boolean) => Promise<void>;
+      onFullscreenChanged?: (callback: (fullscreen: boolean) => void) => () => void;
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
       debugFrameStats?: (payload: unknown) => void;
       debugAudioStats?: (payload: unknown) => void;
@@ -38,6 +40,10 @@ export default function App() {
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
   const [isInitializing, setIsInitializing] = useState(true);
+  // Hides the picture for a few frames around native fullscreen switches.
+  const [fsHidden, setFsHidden] = useState(false);
+  const isFullscreenRef = useRef(false);
+  const fsRevealTimeoutRef = useRef<number>();
 
   const timeoutRef = useRef<number>();
   const processingTimeoutRef = useRef<number>();
@@ -105,21 +111,28 @@ export default function App() {
     };
   }, []);
 
-  // Fullscreen event listener
+  // Native fullscreen events from the main process. The picture is hidden
+  // around the switch (see handleFullscreen) and revealed two frames after the
+  // new geometry is in place, so the abrupt window resize never shows a
+  // misplaced frame.
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isNowFullscreen = !!document.fullscreenElement;
+    const unsubscribe = window.electronAPI.onFullscreenChanged?.((isNowFullscreen) => {
+      isFullscreenRef.current = isNowFullscreen;
       setIsFullscreen(isNowFullscreen);
 
-      // Optional: Automatically disable always-on-top when entering fullscreen
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          clearTimeout(fsRevealTimeoutRef.current);
+          setFsHidden(false);
+        });
+      });
+
       if (isNowFullscreen && alwaysOnTop) {
-        console.log('🔄 Fullscreen detected - disabling always-on-top');
         void setAlwaysOnTopState(false);
       }
-    };
+    });
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () => unsubscribe?.();
   }, [alwaysOnTop, setAlwaysOnTopState]);
 
   // Reset cursor hide timer on any activity - only when running
@@ -286,10 +299,44 @@ export default function App() {
     void setAlwaysOnTopState(!alwaysOnTop);
   }, [alwaysOnTop, isFullscreen, setAlwaysOnTopState]);
 
-  const handleFullscreen = useCallback(
-    () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()),
-    []
-  );
+  const handleFullscreen = useCallback(() => {
+    // Hide the picture, let the hide reach the screen (two frames), then
+    // switch natively - the switch itself is instant.
+    setFsHidden(true);
+    clearTimeout(fsRevealTimeoutRef.current);
+    // Safety net: never stay dark if the fullscreen event does not arrive.
+    fsRevealTimeoutRef.current = window.setTimeout(() => setFsHidden(false), 800);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void window.electronAPI.setFullscreen?.(!isFullscreenRef.current);
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(fsRevealTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      if (showSettings) {
+        event.preventDefault();
+        setShowSettings(false);
+        return;
+      }
+
+      if (isFullscreenRef.current) {
+        event.preventDefault();
+        handleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [handleFullscreen, showSettings]);
 
   const handleClose = useCallback(() => window.electronAPI.closeApp(), []);
 
@@ -411,6 +458,8 @@ export default function App() {
         running={running}
         isProcessing={isProcessing}
         isInitializing={isInitializing}
+        onDoubleClick={handleFullscreen}
+        dimmed={fsHidden}
       />
 
       {/* Zoom Indicator - Top Right - Always shows for 3s when zooming */}

@@ -15,6 +15,13 @@ export type Props = {
   running?: boolean;
   isProcessing?: boolean;
   isInitializing?: boolean;
+  onDoubleClick?: () => void;
+  // Keeps the video off the hardware overlay during window geometry changes
+  // (fullscreen transitions) - see videoWarmup.
+  overlayGuard?: boolean;
+  // Fades the picture to black around fullscreen transitions so the abrupt
+  // window resize has nothing bright to misplace.
+  dimmed?: boolean;
 };
 
 const VideoCanvas: React.FC<Props> = ({
@@ -24,7 +31,10 @@ const VideoCanvas: React.FC<Props> = ({
   isFullscreen = false,
   running = false,
   isProcessing = false,
-  isInitializing = false
+  isInitializing = false,
+  onDoubleClick,
+  overlayGuard = false,
+  dimmed = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
@@ -423,11 +433,11 @@ const VideoCanvas: React.FC<Props> = ({
   const videoStyle: React.CSSProperties = {
     imageRendering: enhanceConfig.imageRendering as any
   };
-  if (filterParts.length > 0) {
-    videoStyle.filter = filterParts.join(' ');
-  } else if (videoWarmup) {
-    videoStyle.filter = 'brightness(100%)';
-  }
+  // Always carry a (possibly neutral) filter: it keeps the picture on the
+  // regular compositing path. The hardware-overlay fast path caused the
+  // misplaced frame on startup, the flash when entering fullscreen and the
+  // late left-shift after leaving it - with no measured latency benefit.
+  videoStyle.filter = filterParts.length > 0 ? filterParts.join(' ') : 'brightness(100%)';
   if (zoomLevel !== 100) {
     videoStyle.transform = `scale(${getScaleFactor()})`;
   }
@@ -450,7 +460,11 @@ const VideoCanvas: React.FC<Props> = ({
         </defs>
       </svg>
 
-      <div className="w-full h-full flex items-center justify-center bg-black relative">
+      <div
+        className="w-full h-full flex items-center justify-center bg-black relative"
+        onDoubleClick={onDoubleClick}
+        style={{ opacity: dimmed ? 0 : 1, transition: dimmed ? 'none' : 'opacity 70ms ease-out' }}
+      >
         {useGlRenderer && stream ? (
           <LowLatencyVideo
             stream={stream}
@@ -548,6 +562,9 @@ export default React.memo(VideoCanvas, (prevProps, nextProps) => {
     prevProps.isFullscreen === nextProps.isFullscreen &&
     prevProps.running === nextProps.running &&
     prevProps.isProcessing === nextProps.isProcessing &&
-    prevProps.isInitializing === nextProps.isInitializing
+    prevProps.isInitializing === nextProps.isInitializing &&
+    prevProps.onDoubleClick === nextProps.onDoubleClick &&
+    prevProps.overlayGuard === nextProps.overlayGuard &&
+    prevProps.dimmed === nextProps.dimmed
   );
 });
