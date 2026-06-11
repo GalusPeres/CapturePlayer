@@ -5,13 +5,25 @@
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles. Now available for **Windows, Linux and macOS (Apple Silicon)**.
 
-## What's New in v0.3.0
+## What's New in v0.3.2
 
-- **Low-Latency Renderer** - New WebGL render path presents capture frames immediately, cutting input lag to OBS preview level and below
-- **Zero-Cost Color Controls** - Brightness, contrast, saturation, hue & sharpness now run as GPU shaders without adding latency
-- **Linux & macOS Support** - First official builds for Linux (AppImage) and macOS (Apple Silicon)
-- **Smoother Frame Pacing** - Frames are displayed at a steady source rate instead of arriving in bursts
-- **UI Polish** - Flicker-free HUD and settings rendering
+- **VSync Setting** - New Advanced option: keep it on for 60 Hz displays, turn it off on high-refresh monitors (ideally with G-Sync/FreeSync) for the most responsive picture (takes effect after restart)
+- **Redesigned Settings** - Compact tabs with short hover tooltips instead of info boxes, new "Advanced" section
+- **WebGL Renderer (experimental)** - Optional alternative render path with shader-based color controls
+- **Linux & macOS Support** - Official builds for Linux (AppImage) and macOS (Apple Silicon)
+- **Fixes** - Capture no longer starts misplaced in a corner; flicker-free HUD and settings rendering
+
+## Measured Performance
+
+Latency was measured with a screen-mirror stopwatch test (same source, same conditions, averaged over 10+ loops):
+
+| Viewer | 165 Hz monitor |
+|---|---|
+| **CapturePlayer** | **~25 ms / loop** |
+| TackleCast (native Rust viewer) | ~41 ms / loop |
+| OBS preview (virtual camera) | ~41-48 ms / loop |
+
+On fixed 60 Hz displays all viewers are limited by the display itself; turning the new VSync setting off closes the gap to native viewers there too (at the cost of possible tearing without G-Sync/FreeSync).
 
 ## The Problem
 
