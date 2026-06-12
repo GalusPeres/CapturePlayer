@@ -5,13 +5,23 @@
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles. Now available for **Windows, Linux and macOS (Apple Silicon)**.
 
-## What's New in v0.3.2
+## What's New in v0.3.3
+
+- **Right-Click Settings** - Open settings via right-click directly at the cursor position; the settings window is now movable
+- **Drag Out of Fullscreen** - Grab the top drag zone to pull the window out of fullscreen
+- **Native Fullscreen & Smoother Video** - Glitch-free video presentation and native fullscreen mode; no more overlay glitch at capture start
+- **Under the Hood** - Updated to Electron 42
+
+<details>
+<summary>v0.3.2</summary>
 
 - **VSync Setting** - New Advanced option: keep it on for 60 Hz displays, turn it off on high-refresh monitors (ideally with G-Sync/FreeSync) for the most responsive picture (takes effect after restart)
 - **Redesigned Settings** - Compact tabs with short hover tooltips instead of info boxes, new "Advanced" section
 - **WebGL Renderer (experimental)** - Optional alternative render path with shader-based color controls
 - **Linux & macOS Support** - Official builds for Linux (AppImage) and macOS (Apple Silicon)
 - **Fixes** - Capture no longer starts misplaced in a corner; flicker-free HUD and settings rendering
+
+</details>
 
 ## Measured Performance
 
