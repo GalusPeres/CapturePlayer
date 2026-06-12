@@ -43,8 +43,8 @@ export default function App() {
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
   const [isInitializing, setIsInitializing] = useState(true);
-  // Where the settings modal opens: null = centered, otherwise at the cursor
-  // (right-click).
+  // Right-click opens at the cursor and makes that the new remembered
+  // position. The HUD button reuses it, including after an app restart.
   const [settingsAnchor, setSettingsAnchor] = useState<{ x: number; y: number } | null>(null);
   // Hides the picture for a few frames around native fullscreen switches.
   const [fsHidden, setFsHidden] = useState(false);
