@@ -43,6 +43,9 @@ export default function App() {
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
   const [isInitializing, setIsInitializing] = useState(true);
+  // Where the settings modal opens: null = centered, otherwise at the cursor
+  // (right-click).
+  const [settingsAnchor, setSettingsAnchor] = useState<{ x: number; y: number } | null>(null);
   // Hides the picture for a few frames around native fullscreen switches.
   const [fsHidden, setFsHidden] = useState(false);
   const isFullscreenRef = useRef(false);
@@ -344,6 +347,7 @@ export default function App() {
   const handleClose = useCallback(() => window.electronAPI.closeApp(), []);
 
   const handleOpenSettings = useCallback(() => {
+    setSettingsAnchor(null);
     setShowSettings(true);
   }, []);
 
@@ -450,6 +454,13 @@ export default function App() {
       `}
       onMouseEnter={handlePointerEnter}
       onMouseLeave={handlePointerLeave}
+      // Right-click opens the settings at the cursor (or moves them there if
+      // already open) - closing is done via X, Escape or clicking outside.
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setSettingsAnchor({ x: e.clientX, y: e.clientY });
+        setShowSettings(true);
+      }}
     >
       <DragBar isFullscreen={isFullscreen} />
 
@@ -511,6 +522,7 @@ export default function App() {
         }}
         activeVideoDevice={activeVideoDevice}
         activeAudioDevice={activeAudioDevice}
+        anchor={settingsAnchor}
       />
     </div>
   );

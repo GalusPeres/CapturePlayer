@@ -23,6 +23,9 @@ type Props = {
   onDeviceSelectionChange?: (videoDev: string, audioDev: string) => void;
   activeVideoDevice?: string;
   activeAudioDevice?: string;
+  // null = centered; otherwise the modal opens at this cursor position
+  // (right-click), clamped to the window edges.
+  anchor?: { x: number; y: number } | null;
 };
 
 export default function SettingsModal({
@@ -37,7 +40,8 @@ export default function SettingsModal({
   setFullscreenZoom = () => {},
   onDeviceSelectionChange,
   activeVideoDevice = '',
-  activeAudioDevice = ''
+  activeAudioDevice = '',
+  anchor = null
 }: Props) {
   const settings = useSettings();
   const [tab, setTab] = useState<'devices' | 'view' | 'color' | 'about'>('devices');
@@ -85,15 +89,84 @@ export default function SettingsModal({
   const hasDeviceChanges = localVideo !== activeVideoDevice || localAudio !== activeAudioDevice;
   const bothDevicesDisabled = localVideo === '' && localAudio === '';
 
+  // Dragging the modal via its title bar; a fresh open (or a new right-click
+  // anchor) discards the previously dragged position.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const headerDragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    setDragPosition(null);
+  }, [visible, anchor]);
+
   if (!visible) return null;
 
+  // Modal placement: default sits above the HUD buttons, right-aligned with
+  // the close button; a right-click anchor opens it at the cursor; dragging
+  // the title bar moves it freely - always clamped inside the window.
+  const MODAL_WIDTH = 384; // w-96
+  const MODAL_HEIGHT = 512; // h-[32rem]
+  const EDGE = 8;
+  // The top 32px belong to the window drag zone - the modal stays below it
+  // so window dragging and modal dragging never fight over the same pixels.
+  const TOP_EDGE = 40;
+  const HUD_CLEARANCE = { right: 24, bottom: 84 }; // matches the hover buttons
+
+  const clampPosition = (x: number, y: number) => {
+    // Before the first paint the panel is not measurable yet - estimate its
+    // size including the max-w/max-h caps so the position does not jump once
+    // the real measurements arrive.
+    const rect = panelRef.current?.getBoundingClientRect();
+    const width = rect?.width ?? Math.min(MODAL_WIDTH, window.innerWidth * 0.9);
+    const height = rect?.height ?? Math.min(MODAL_HEIGHT, window.innerHeight * 0.9);
+    return {
+      x: Math.max(EDGE, Math.min(x, window.innerWidth - width - EDGE)),
+      y: Math.max(TOP_EDGE, Math.min(y, window.innerHeight - height - EDGE))
+    };
+  };
+
+  const onHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    headerDragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!headerDragRef.current) return;
+    setDragPosition(clampPosition(e.clientX - headerDragRef.current.dx, e.clientY - headerDragRef.current.dy));
+  };
+
+  const onHeaderPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    headerDragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const panelStyle: React.CSSProperties = dragPosition
+    ? { position: 'absolute', left: dragPosition.x, top: dragPosition.y }
+    : anchor
+      ? (() => {
+          const clamped = clampPosition(anchor.x, anchor.y);
+          return { position: 'absolute', left: clamped.x, top: clamped.y };
+        })()
+      : (() => {
+          // Sit above the HUD buttons; in small windows overlap them rather
+          // than getting clipped at the top edge.
+          const height =
+            panelRef.current?.getBoundingClientRect().height ?? Math.min(MODAL_HEIGHT, window.innerHeight * 0.9);
+          const top = Math.max(TOP_EDGE, window.innerHeight - HUD_CLEARANCE.bottom - height);
+          return { position: 'absolute', right: HUD_CLEARANCE.right, top };
+        })();
+
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      onClick={onClose}
-      style={{ pointerEvents: 'auto' }}
-    >
+    <div className="fixed inset-0 z-50" onClick={onClose} style={{ pointerEvents: 'auto' }}>
       <div
+        ref={panelRef}
+        style={panelStyle}
         className={`
           bg-gradient-to-br from-blue-950 to-green-950
           rounded-2xl
@@ -105,11 +178,18 @@ export default function SettingsModal({
           animate-fade-in
         `}
         onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.stopPropagation()}
       >
         {/* Header + Tab Navigation */}
         <div className="relative">
           {/* Header - Compact */}
-          <div className="flex justify-between items-center px-6 py-3 no-drag relative">
+          <div
+            className="flex justify-between items-center px-6 py-3 no-drag relative select-none cursor-pointer"
+            onPointerDown={onHeaderPointerDown}
+            onPointerMove={onHeaderPointerMove}
+            onPointerUp={onHeaderPointerUp}
+            onPointerCancel={onHeaderPointerUp}
+          >
             <h3 className="text-white text-lg">Settings</h3>
             <button
               onClick={onClose}
