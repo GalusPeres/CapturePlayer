@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 export type Settings = {
   videoDevice: string;
   audioDevice: string;
+  captureResolution: string;
+  captureFrameRate: string;
   volume: number;
   brightness: number;
   contrast: number;
@@ -47,6 +49,8 @@ export type Settings = {
 
   setVideoDevice(v: string): void;
   setAudioDevice(a: string): void;
+  setCaptureResolution(v: string): void;
+  setCaptureFrameRate(v: string): void;
   setVolume(v: number): void;
   setBrightness(v: number): void;
   setContrast(v: number): void;
@@ -90,6 +94,8 @@ const loadAllSettings = () => {
 const DEFAULT_SETTINGS = {
   videoDevice: '',
   audioDevice: '',
+  captureResolution: 'auto',
+  captureFrameRate: 'auto',
   volume: 100,
   brightness: 100,
   contrast: 100,
@@ -125,6 +131,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const {
     videoDevice,
     audioDevice,
+    captureResolution,
+    captureFrameRate,
     volume,
     brightness,
     contrast,
@@ -175,6 +183,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const setVideoDevice = useMemo(() => createSetter('videoDevice'), [createSetter]);
   const setAudioDevice = useMemo(() => createSetter('audioDevice'), [createSetter]);
+  const setCaptureResolution = useMemo(() => createSetter('captureResolution'), [createSetter]);
+  const setCaptureFrameRate = useMemo(() => createSetter('captureFrameRate'), [createSetter]);
   const setVolume = useMemo(() => createSetter('volume'), [createSetter]);
   const setBrightness = useMemo(() => createSetter('brightness'), [createSetter]);
   const setContrast = useMemo(() => createSetter('contrast'), [createSetter]);
@@ -199,6 +209,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       videoDevice,
       audioDevice,
+      captureResolution,
+      captureFrameRate,
       volume,
       brightness,
       contrast,
@@ -220,6 +232,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       lowLatencyRenderer,
       setVideoDevice,
       setAudioDevice,
+      setCaptureResolution,
+      setCaptureFrameRate,
       setVolume,
       setBrightness,
       setContrast,
@@ -243,6 +257,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [
       videoDevice,
       audioDevice,
+      captureResolution,
+      captureFrameRate,
       volume,
       brightness,
       contrast,
@@ -264,6 +280,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       lowLatencyRenderer,
       setVideoDevice,
       setAudioDevice,
+      setCaptureResolution,
+      setCaptureFrameRate,
       setVolume,
       setBrightness,
       setContrast,

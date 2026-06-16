@@ -68,6 +68,8 @@ export default function App() {
   // Currently active devices in the running stream (for Apply button logic)
   const [activeVideoDevice, setActiveVideoDevice] = useState(settings.videoDevice);
   const [activeAudioDevice, setActiveAudioDevice] = useState(settings.audioDevice);
+  const [activeCaptureResolution, setActiveCaptureResolution] = useState(settings.captureResolution);
+  const [activeCaptureFrameRate, setActiveCaptureFrameRate] = useState(settings.captureFrameRate);
 
   useEffect(() => {
     hideCursorRef.current = hideCursor;
@@ -286,6 +288,8 @@ export default function App() {
         await start({ videoDevice: currentVideoDevice, audioDevice: currentAudioDevice });
         setActiveVideoDevice(currentVideoDevice);
         setActiveAudioDevice(currentAudioDevice);
+        setActiveCaptureResolution(settings.captureResolution);
+        setActiveCaptureFrameRate(settings.captureFrameRate);
         setRunning(true);
         console.log('✅ Capture started successfully');
       }
@@ -295,7 +299,16 @@ export default function App() {
     } finally {
       setProcessingWithTimeout(false);
     }
-  }, [currentAudioDevice, currentVideoDevice, isProcessing, running, start, stop]);
+  }, [
+    currentAudioDevice,
+    currentVideoDevice,
+    isProcessing,
+    running,
+    settings.captureResolution,
+    settings.captureFrameRate,
+    start,
+    stop
+  ]);
 
   const handleAlwaysOnTop = useCallback(() => {
     if (isFullscreen) {
@@ -388,6 +401,8 @@ export default function App() {
         await start({ videoDevice: videoDev, audioDevice: audioDev });
         setActiveVideoDevice(videoDev);
         setActiveAudioDevice(audioDev);
+        setActiveCaptureResolution(settings.captureResolution);
+        setActiveCaptureFrameRate(settings.captureFrameRate);
         setRunning(true);
 
         console.log('✅ Device switch successful!');
@@ -522,6 +537,8 @@ export default function App() {
         }}
         activeVideoDevice={activeVideoDevice}
         activeAudioDevice={activeAudioDevice}
+        activeCaptureResolution={activeCaptureResolution}
+        activeCaptureFrameRate={activeCaptureFrameRate}
         anchor={settingsAnchor}
       />
     </div>

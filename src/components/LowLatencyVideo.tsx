@@ -134,7 +134,7 @@ const LowLatencyVideo: React.FC<Props> = ({
     const expectedFrameMs = () => 1000 / (measuredFps || trackFps() || 60);
 
     const reportResolution = () => {
-      const next = width && height ? { w: width, h: height, fps: measuredFps ?? trackFps() } : null;
+      const next = width && height ? { w: width, h: height, fps: trackFps() ?? measuredFps } : null;
       const signature = next ? `${next.w}x${next.h}@${next.fps ?? 0}` : 'null';
       if (signature !== lastSignature) {
         lastSignature = signature;

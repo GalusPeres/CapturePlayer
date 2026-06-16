@@ -15,6 +15,21 @@ type Props = {
   running: boolean;
 };
 
+const captureResolutionOptions: SimpleSelectOption[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '3840x2160', label: '3840x2160 (4K)' },
+  { value: '2560x1440', label: '2560x1440' },
+  { value: '1920x1080', label: '1920x1080' },
+  { value: '1280x720', label: '1280x720' }
+];
+
+const captureFrameRateOptions: SimpleSelectOption[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '30', label: '30 FPS' },
+  { value: '60', label: '60 FPS' },
+  { value: '120', label: '120 FPS' }
+];
+
 // Clean device labels by removing hardware IDs in parentheses
 function cleanLabel(label: string): string {
   return label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim();
@@ -28,6 +43,7 @@ function hasDeviceLabels(devices: MediaDeviceInfo[]) {
 
 export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLocalAudio, signalInfo, running }: Props) {
   const settings = useSettings();
+  const { captureResolution, captureFrameRate, setCaptureResolution, setCaptureFrameRate } = settings;
 
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -98,8 +114,18 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
     return [{ value: '', label: 'No audio device' }, ...devices];
   }, [audioDevices]);
 
+  useEffect(() => {
+    if (!captureResolutionOptions.some((option) => option.value === captureResolution)) {
+      setCaptureResolution('auto');
+    }
+
+    if (!captureFrameRateOptions.some((option) => option.value === captureFrameRate)) {
+      setCaptureFrameRate('auto');
+    }
+  }, [captureFrameRate, captureResolution, setCaptureFrameRate, setCaptureResolution]);
+
   // Format signal info display text
-  let signalTxt = signalInfo?.w && signalInfo?.h ? `Source: ${signalInfo.w}×${signalInfo.h}` : '';
+  let signalTxt = signalInfo?.w && signalInfo?.h ? `Source: ${signalInfo.w}x${signalInfo.h}` : '';
   if (signalInfo?.fps) signalTxt += `@${signalInfo.fps}FPS`;
 
   return (
@@ -130,6 +156,26 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
             settings.setVideoDevice(value); // Sofort speichern
           }}
         />
+      </div>
+
+      {/* Capture Format Selection */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block mb-1">Resolution:</label>
+          <SimpleSelect
+            options={captureResolutionOptions}
+            value={captureResolution}
+            onChange={(value) => setCaptureResolution(value)}
+          />
+        </div>
+        <div>
+          <label className="block mb-1">FPS:</label>
+          <SimpleSelect
+            options={captureFrameRateOptions}
+            value={captureFrameRate}
+            onChange={(value) => setCaptureFrameRate(value)}
+          />
+        </div>
       </div>
 
       {/* Audio Device Selection */}

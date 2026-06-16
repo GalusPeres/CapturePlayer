@@ -7,6 +7,49 @@ type DeviceOverrides = {
   audioDevice?: string;
 };
 
+function parseCaptureResolution(value: string) {
+  if (value === 'auto') return null;
+
+  const [width, height] = value.split('x').map(Number);
+  if (!width || !height) return null;
+
+  return { width, height };
+}
+
+function parseCaptureFrameRate(value: string) {
+  if (value === 'auto') return null;
+
+  const fps = Number(value);
+  return Number.isFinite(fps) && fps > 0 ? fps : null;
+}
+
+function createVideoConstraints(
+  videoDev: string | undefined,
+  captureResolution: string,
+  captureFrameRate: string
+): false | MediaTrackConstraints {
+  if (videoDev === '') return false;
+
+  const resolution = parseCaptureResolution(captureResolution);
+  const fps = parseCaptureFrameRate(captureFrameRate);
+
+  return {
+    ...(videoDev ? { deviceId: { exact: videoDev } } : {}),
+    ...(resolution
+      ? {
+          resizeMode: { ideal: 'none' },
+          width: { exact: resolution.width },
+          height: { exact: resolution.height }
+        }
+      : {}),
+    ...(fps
+      ? {
+          frameRate: { ideal: fps }
+        }
+      : {})
+  };
+}
+
 export function useCaptureStream() {
   const settings = useSettings();
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -109,12 +152,11 @@ export function useCaptureStream() {
 
         console.log('🎥 Using devices:', { video: videoDev, audio: audioDev });
 
-        const videoConstraints =
-          videoDev === ''
-            ? false
-            : videoDev
-              ? { deviceId: { exact: videoDev } }
-              : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } };
+        const videoConstraints = createVideoConstraints(
+          videoDev,
+          settings.captureResolution,
+          settings.captureFrameRate
+        );
 
         const audioConstraints =
           audioDev === ''
@@ -225,7 +267,16 @@ export function useCaptureStream() {
         startingRef.current = false;
       }
     },
-    [settings.videoDevice, settings.audioDevice, settings.volume, stream, stop, cleanup]
+    [
+      settings.videoDevice,
+      settings.audioDevice,
+      settings.captureResolution,
+      settings.captureFrameRate,
+      settings.volume,
+      stream,
+      stop,
+      cleanup
+    ]
   );
 
   // Dynamically adjust volume (with error handling)

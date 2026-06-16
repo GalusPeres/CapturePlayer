@@ -149,7 +149,7 @@ const VideoCanvas: React.FC<Props> = ({
       }
 
       const trackSettings = track.getSettings?.();
-      const fps = measuredFps ?? (trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : undefined);
+      const fps = trackSettings?.frameRate ? Math.round(trackSettings.frameRate) : measuredFps;
       const width = video.videoWidth || trackSettings?.width;
       const height = video.videoHeight || trackSettings?.height;
 

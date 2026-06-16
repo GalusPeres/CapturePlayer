@@ -78,6 +78,8 @@ type Props = {
   onDeviceSelectionChange?: (videoDev: string, audioDev: string) => void;
   activeVideoDevice?: string;
   activeAudioDevice?: string;
+  activeCaptureResolution?: string;
+  activeCaptureFrameRate?: string;
   // null = default/remembered position; otherwise open at this cursor
   // position (right-click), clamped to the window edges.
   anchor?: Position | null;
@@ -96,6 +98,8 @@ export default function SettingsModal({
   onDeviceSelectionChange,
   activeVideoDevice = '',
   activeAudioDevice = '',
+  activeCaptureResolution = 'auto',
+  activeCaptureFrameRate = 'auto',
   anchor = null
 }: Props) {
   const settings = useSettings();
@@ -192,6 +196,8 @@ export default function SettingsModal({
 
   // Compare with currently active devices in stream, not saved settings
   const hasDeviceChanges = localVideo !== activeVideoDevice || localAudio !== activeAudioDevice;
+  const hasCaptureFormatChanges =
+    settings.captureResolution !== activeCaptureResolution || settings.captureFrameRate !== activeCaptureFrameRate;
   const bothDevicesDisabled = localVideo === '' && localAudio === '';
 
   // Positions are stored relative to the available movement area. This keeps
@@ -507,7 +513,7 @@ export default function SettingsModal({
           <div className="absolute top-0 left-4 right-4 h-px bg-zinc-600/40" />
           {tab === 'devices' ? (
             <>
-              {running && hasDeviceChanges && !bothDevicesDisabled && (
+              {running && (hasDeviceChanges || hasCaptureFormatChanges) && !bothDevicesDisabled && (
                 <button
                   onClick={applyDevices}
                   className="px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white rounded-xl focus:outline-none transition-all"
