@@ -7,7 +7,7 @@ A minimalist capture card viewer for PC gaming and Discord streaming. Built for 
 
 ## What's New in v0.4.0
 
-- **Manual Capture Format** - Resolution and frame rate can now be set manually (up to 4K and 144 FPS) instead of relying on auto-negotiation
+- **Manual Capture Format** - Resolution and frame rate can now be set manually in the settings instead of relying on auto-negotiation
 - **Tested with Elgato 4K X** - Successfully tested with the Elgato 4K X capture card on Nintendo Switch 2
 - **Settings Panel State** - The settings window now remembers its last open state
 
