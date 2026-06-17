@@ -172,7 +172,7 @@ const LowLatencyVideo: React.FC<Props> = ({
         diagnosticsEnabledRef.current
           ? [
               `${stats.width}x${stats.height}${stats.trackFps ? ` @${stats.trackFps} src` : ''}`,
-              'renderer: webgl low-latency',
+              'renderer: webgl',
               `present: ${stats.desynchronized ? 'direct (desync)' : 'compositor'}`,
               `display: ${stats.displayFps.toFixed(1)} fps`,
               `frame: ${stats.lastFrameMs.toFixed(1)} ms`,

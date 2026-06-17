@@ -27,7 +27,8 @@ const captureFrameRateOptions: SimpleSelectOption[] = [
   { value: 'auto', label: 'Auto' },
   { value: '30', label: '30 FPS' },
   { value: '60', label: '60 FPS' },
-  { value: '120', label: '120 FPS' }
+  { value: '120', label: '120 FPS' },
+  { value: '144', label: '144 FPS' }
 ];
 
 // Clean device labels by removing hardware IDs in parentheses
