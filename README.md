@@ -32,18 +32,6 @@ A minimalist capture card viewer for PC gaming and Discord streaming. Built for 
 
 </details>
 
-## Measured Performance
-
-Latency was measured with a screen-mirror stopwatch test (same source, same conditions, averaged over 10+ loops):
-
-| Viewer | 165 Hz monitor |
-|---|---|
-| **CapturePlayer** | **~25 ms / loop** |
-| TackleCast (native Rust viewer) | ~41 ms / loop |
-| OBS preview (virtual camera) | ~41-48 ms / loop |
-
-On fixed 60 Hz displays all viewers are limited by the display itself; turning the new VSync setting off closes the gap to native viewers there too (at the cost of possible tearing without G-Sync/FreeSync).
-
 ## The Problem
 
 When you want to play Nintendo Switch games on your PC monitor through a capture card and stream it on Discord, OBS is unnecessarily complicated:
