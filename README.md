@@ -9,7 +9,7 @@ A minimalist capture card viewer for PC gaming and Discord streaming. Built for 
 
 ## Demo
 
-<video src="https://github.com/galusperes/CapturePlayer/raw/main/docs/assets/videos/demo_video.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/808f9d12-a054-42f3-89f3-94cc7cc315e1
 
 ## What's New in v0.4.0
 
