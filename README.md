@@ -7,6 +7,10 @@ A minimalist capture card viewer for PC gaming and Discord streaming. Built for 
 
 > **Turn on your console, open CapturePlayer, and play — that's it.**
 
+## Demo
+
+[Watch demo video](./docs/assets/videos/demo_video.mp4)
+
 ## What's New in v0.4.0
 
 - **Manual Capture Format** - Resolution and frame rate can now be set manually in the settings, with support for 4K and high refresh rates, instead of relying on auto-negotiation
@@ -103,10 +107,10 @@ Download the latest release from [GitHub Releases](https://github.com/galusperes
 
 ## Screenshots
 
-![Main Window](./screenshot_main.png)
+![Main Window](./docs/assets/screenshots/screenshot_main.png)
 *Clean display with auto-hiding controls*
 
-![Settings](./screenshot_settings.png)
+![Settings](./docs/assets/screenshots/screenshot_settings.png)
 *Simple device and color adjustment settings*
 
 ## Tested With
@@ -129,4 +133,4 @@ MIT License
 
 ---
 
-Built for gamers who just want to play. Created by [galusperes](https://github.com/galusperes)# Force Contributors Refresh
+Built for gamers who just want to play. Created by [galusperes](https://github.com/galusperes)
