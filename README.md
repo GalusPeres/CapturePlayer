@@ -9,7 +9,7 @@ A minimalist capture card viewer for PC gaming and Discord streaming. Built for 
 
 ## Demo
 
-[Watch demo video](./docs/assets/videos/demo_video.mp4)
+![Watch demo video](./docs/assets/videos/demo_video.mp4)
 
 ## What's New in v0.4.0
 
