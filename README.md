@@ -108,10 +108,13 @@ Download the latest release from [GitHub Releases](https://github.com/galusperes
 
 ## Tested With
 
+- Elgato 4K X
 - Elgato HD60 S+
 - Nintendo Switch 2
 - Windows 11
 - macOS (Apple Silicon, M1)
+
+> **Note for low-power Apple Silicon (e.g. MacBook Air M1):** Enable the WebGL renderer in the View settings for smooth playback. With the Elgato 4K X, 1080p60 and 4K60 ran well in testing; 1440p60 could stutter on this hardware.
 
 ## Why Not OBS?
 
