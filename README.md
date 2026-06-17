@@ -5,12 +5,21 @@
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles. Now available for **Windows, Linux and macOS (Apple Silicon)**.
 
-## What's New in v0.3.3
+## What's New in v0.4.0
+
+- **Manual Capture Format** - Resolution and frame rate can now be set manually (up to 4K and 144 FPS) instead of relying on auto-negotiation
+- **Tested with Elgato 4K X** - Successfully tested with the Elgato 4K X capture card on Nintendo Switch 2
+- **Settings Panel State** - The settings window now remembers its last open state
+
+<details>
+<summary>v0.3.3</summary>
 
 - **Right-Click Settings** - Open settings via right-click directly at the cursor position; the settings window is now movable
 - **Drag Out of Fullscreen** - Grab the top drag zone to pull the window out of fullscreen
 - **Native Fullscreen & Smoother Video** - Glitch-free video presentation and native fullscreen mode; no more overlay glitch at capture start
 - **Under the Hood** - Updated to Electron 42
+
+</details>
 
 <details>
 <summary>v0.3.2</summary>
