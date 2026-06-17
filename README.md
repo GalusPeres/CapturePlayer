@@ -5,6 +5,8 @@
 
 A minimalist capture card viewer for PC gaming and Discord streaming. Built for Nintendo Switch and other consoles. Now available for **Windows, Linux and macOS (Apple Silicon)**.
 
+> **Turn on your console, open CapturePlayer, and play — that's it.**
+
 ## What's New in v0.4.0
 
 - **Manual Capture Format** - Resolution and frame rate can now be set manually in the settings, with support for 4K and high refresh rates, instead of relying on auto-negotiation

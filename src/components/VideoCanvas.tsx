@@ -48,7 +48,7 @@ const VideoCanvas: React.FC<Props> = ({
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
   const useGlRenderer = settings.lowLatencyRenderer && !glFailed && hasVideoTrack && isLowLatencySupported();
 
-  // Image Enhancement Modes - GPU-accelerated, zero-latency
+  // Image Enhancement Modes - CSS image-rendering hint, applied by the browser compositor
   const getEnhancementConfig = (mode: string) => {
     switch (mode) {
       case 'enhanced':
