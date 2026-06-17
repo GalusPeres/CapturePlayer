@@ -52,10 +52,11 @@ CapturePlayer does one thing perfectly: **Shows your capture card feed. Nothing 
 - Perfect for gaming without distractions
 
 ### Performance
-- Optimized low latency video processing
-- GPU-accelerated rendering pipeline
-- Synchronized audio and video
+- Optimized for low input lag
+- No audio delay - audio and video stay in sync
+- Fast startup - ready to play in seconds
 - Lightweight on system resources
+- Cross-platform: Windows, Linux, macOS (Apple Silicon - 4K60 tested on M1)
 
 ### Smart Display & Customization
 - Automatic aspect ratio detection - window adapts to your input signal
