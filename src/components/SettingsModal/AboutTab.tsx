@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import iconIco from '../../assets/icons/icon.ico';
 
 // App constants - could be imported from package.json later
-const APP_VERSION = '0.3.3';
+const APP_VERSION = '0.4.0';
 const APP_NAME = 'CapturePlayer';
 const GITHUB_URL = 'https://github.com/GalusPeres/CapturePlayer';
 const COFFEE_URL = 'https://ko-fi.com/galusperes'; // Replace with your Ko-fi/PayPal link
