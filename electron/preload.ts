@@ -3,6 +3,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Expose Electron APIs to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
+  getNeuralStatus: () => ipcRenderer.invoke('neural-status'),
+  startNeural: (quality: string, split: boolean, strength = 100) => ipcRenderer.invoke('neural-start', quality, split, strength),
+  stopNeural: () => ipcRenderer.invoke('neural-stop'),
+  setNeuralSplit: (split: boolean) => ipcRenderer.invoke('neural-split', split),
+  setNeuralStrength: (strength: number) => ipcRenderer.invoke('neural-strength', strength),
   isAlwaysOnTop: () => ipcRenderer.invoke('is-always-on-top'),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
   closeApp: () => ipcRenderer.invoke('close-app'),

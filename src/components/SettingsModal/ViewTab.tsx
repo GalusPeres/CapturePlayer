@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import InfoHint from './InfoHint';
+import NeuralControls from './NeuralControls';
+import UpscalerControls from './UpscalerControls';
 
 const aspectModes = [
   { value: 'auto', label: 'Auto' },
@@ -55,6 +57,12 @@ export function DisplayTab({
 
   const vsyncOn = !vsyncDisabled;
   const vsyncNeedsRestart = vsyncDisabled !== vsyncDisabledActive;
+  const toggleWebGl = () => {
+    if (settings.lowLatencyRenderer || settings.spatialUpscaler) {
+      settings.setSpatialUpscaler(false);
+      settings.setLowLatencyRenderer(false);
+    } else settings.setLowLatencyRenderer(true);
+  };
 
   // Determine current aspect ratio mode
   let aspectMode: string = settings.autoAspectRatio ? 'auto' : settings.manualAspectRatio;
@@ -197,7 +205,7 @@ export function DisplayTab({
           {/* Low-latency renderer */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
+              onClick={toggleWebGl}
               className={`
                 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
                 ${
@@ -223,7 +231,7 @@ export function DisplayTab({
               }
             >
               <span
-                onClick={() => settings.setLowLatencyRenderer(!settings.lowLatencyRenderer)}
+                onClick={toggleWebGl}
                 className="text-sm text-white/90 cursor-pointer select-none"
               >
                 WebGL renderer (experimental)
@@ -321,6 +329,8 @@ export function DisplayTab({
               </span>
             </div>
           )}
+          <UpscalerControls signalInfo={signalInfo} />
+          <NeuralControls hasSignal={!!signalInfo} />
         </div>
       </div>
     </>
@@ -362,6 +372,7 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
   };
 
   const resetView = () => {
+    void window.electronAPI.stopNeural?.();
     settings.setAutoAspectRatio(true);
     if (isFullscreen) {
       setFullscreenZoom(100);
@@ -370,6 +381,8 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
     }
     // Advanced section defaults
     settings.setLowLatencyRenderer(false);
+    settings.setSpatialUpscaler(false);
+    settings.setUpscalerSharpness(20);
     settings.setShowDiagnosticsOverlay(false);
     void window.electronAPI.setDisableGpuVsync?.(false);
     // The vsync checkbox holds local state inside DisplayTab - tell it to re-read.

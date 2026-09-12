@@ -6,10 +6,16 @@ import VideoCanvas from './components/VideoCanvas';
 import DragBar from './components/DragBar';
 import HoverControls from './components/HoverControls';
 import SettingsModal from './components/SettingsModal';
+import type { NeuralQuality, NeuralStatus } from './types/neural';
 
 declare global {
   interface Window {
     electronAPI: {
+      getNeuralStatus?: () => Promise<NeuralStatus>;
+      startNeural?: (quality: NeuralQuality, split: boolean, strength?: number) => Promise<NeuralStatus>;
+      stopNeural?: () => Promise<NeuralStatus>;
+      setNeuralSplit?: (split: boolean) => Promise<void>;
+      setNeuralStrength?: (strength: number) => Promise<void>;
       isAlwaysOnTop: () => Promise<boolean>;
       setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
       closeApp: () => void;
@@ -34,6 +40,9 @@ export default function App() {
   const settings = useSettings();
 
   const [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!running) void window.electronAPI.stopNeural?.();
+  }, [running, stream]);
   const [showSettings, setShowSettings] = useState(false);
   const [hideCursor, setHideCursor] = useState(false);
   const [mouseInside, setMouseInside] = useState(true);

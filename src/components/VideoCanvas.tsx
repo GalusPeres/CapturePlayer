@@ -46,7 +46,7 @@ const VideoCanvas: React.FC<Props> = ({
   // Prefer the low-latency WebGL path (MediaStreamTrackProcessor + desynchronized
   // canvas); fall back to the classic <video> element if it is unavailable or fails.
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
-  const useGlRenderer = settings.lowLatencyRenderer && !glFailed && hasVideoTrack && isLowLatencySupported();
+  const useGlRenderer = (settings.lowLatencyRenderer || settings.spatialUpscaler) && !glFailed && hasVideoTrack && isLowLatencySupported();
 
   // Image Enhancement Modes - CSS image-rendering hint, applied by the browser compositor
   const getEnhancementConfig = (mode: string) => {
@@ -83,11 +83,12 @@ const VideoCanvas: React.FC<Props> = ({
   const handleGlFallback = useCallback((reason: string) => {
     console.warn('⚠️ Low-latency renderer unavailable, falling back to <video> element:', reason);
     setGlFailed(true);
-  }, []);
+    settings.setSpatialUpscaler(false);
+  }, [settings.setSpatialUpscaler]);
 
   useEffect(() => {
     setGlFailed(false);
-  }, [settings.lowLatencyRenderer, stream]);
+  }, [settings.lowLatencyRenderer, settings.spatialUpscaler, stream]);
 
   // Overlay warmup window for the <video> path (see videoStyle below).
   useEffect(() => {
@@ -408,6 +409,8 @@ const VideoCanvas: React.FC<Props> = ({
 
   // Shader-side filter state for the WebGL renderer (same semantics as the CSS filters).
   const glFilters: GlFilterState = {
+    upscaler: settings.spatialUpscaler,
+    upscaleSharpness: settings.upscalerSharpness / 100,
     brightness: settings.brightness / 100,
     contrast: effectiveContrast / 100,
     saturation: settings.saturation / 100,

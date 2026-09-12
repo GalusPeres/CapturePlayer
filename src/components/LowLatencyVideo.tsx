@@ -2,7 +2,7 @@
 // Pulls VideoFrames straight off the capture track via MediaStreamTrackProcessor
 // (maxBufferSize 1 = stale frames are dropped, never queued) and presents each
 // one immediately on a desynchronized WebGL canvas instead of a <video> element.
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createGlVideoPipeline } from './glVideoPipeline';
 import type { GlFilterState, GlVideoPipeline } from './glVideoPipeline';
 
@@ -55,6 +55,31 @@ const LowLatencyVideo: React.FC<Props> = ({
   onFallback
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [outputSize, setOutputSize] = useState({ width: 0, height: 0 });
+  const fsrEnabled = !!filters.upscaler;
+  const targetWidth = fsrEnabled ? outputSize.width : 0;
+  const targetHeight = fsrEnabled ? outputSize.height : 0;
+  useEffect(() => {
+    let timer: number;
+    const measure = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const rect = hostRef.current?.getBoundingClientRect();
+        if (!rect || rect.width < 1 || rect.height < 1) return;
+        const dpr = window.devicePixelRatio || 1;
+        const scale = Math.min(dpr, 4096 / rect.width, 2160 / rect.height);
+        const width = Math.max(1, Math.round(rect.width * scale));
+        const height = Math.max(1, Math.round(rect.height * scale));
+        setOutputSize(old => old.width === width && old.height === height ? old : { width, height });
+      }, 120);
+    };
+    const observer = new ResizeObserver(measure);
+    if (hostRef.current) observer.observe(hostRef.current);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => { clearTimeout(timer); observer.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
 
   // Mutable inputs live in refs so settings/zoom changes do not restart the frame loop.
   const filtersRef = useRef(filters);
@@ -73,7 +98,7 @@ const LowLatencyVideo: React.FC<Props> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     const track = stream.getVideoTracks()[0];
-    if (!canvas || !track) return undefined;
+    if (!canvas || !track || (fsrEnabled && (!targetWidth || !targetHeight))) return undefined;
 
     let disposed = false;
     const fail = (reason: string) => {
@@ -90,11 +115,8 @@ const LowLatencyVideo: React.FC<Props> = ({
       return undefined;
     }
 
-    // The pipeline is created lazily on the first frame: the canvas backing
-    // store is fixed to the source resolution and CSS (object-contain) does
-    // the scaling to the window. Resizing a desynchronized canvas after
-    // context creation left the presented surface stuck at its initial size
-    // (frame glued to the top-left corner on startup).
+    // A new canvas/context is mounted when output size changes. This avoids
+    // resizing a live desynchronized surface, which can leave stale geometry.
     let pipeline: GlVideoPipeline | null = null;
 
     const onContextLost = (event: Event) => {
@@ -126,9 +148,16 @@ const LowLatencyVideo: React.FC<Props> = ({
     let fpsFrameCount = 0;
     let lastSignature: string | null = null;
 
+    let settingsReadAt = -Infinity;
+    let cachedTrackFps: number | undefined;
     const trackFps = () => {
-      const frameRate = track.getSettings?.().frameRate;
-      return frameRate ? Math.round(frameRate) : undefined;
+      const now = performance.now();
+      if (now - settingsReadAt >= 1000) {
+        const frameRate = track.getSettings?.().frameRate;
+        cachedTrackFps = frameRate ? Math.round(frameRate) : undefined;
+        settingsReadAt = now;
+      }
+      return cachedTrackFps;
     };
 
     const expectedFrameMs = () => 1000 / (measuredFps || trackFps() || 60);
@@ -138,6 +167,8 @@ const LowLatencyVideo: React.FC<Props> = ({
       const signature = next ? `${next.w}x${next.h}@${next.fps ?? 0}` : 'null';
       if (signature !== lastSignature) {
         lastSignature = signature;
+        canvas.dataset.sourceWidth = String(width);
+        canvas.dataset.sourceHeight = String(height);
         onResolutionRef.current?.(next);
       }
     };
@@ -235,8 +266,11 @@ const LowLatencyVideo: React.FC<Props> = ({
           height = frame.displayHeight;
 
           if (!pipeline) {
-            canvas.width = width;
-            canvas.height = height;
+            // Measurements favored Chromium's source-sized fast path when no
+            // enlargement is needed. Only allocate a larger target for FSR.
+            const enlarge = fsrEnabled && targetWidth > width && targetHeight > height;
+            canvas.width = enlarge ? targetWidth : width;
+            canvas.height = enlarge ? targetHeight : height;
             try {
               pipeline = createGlVideoPipeline(canvas);
               console.log(`🎞️ Low-latency renderer active, desynchronized canvas: ${pipeline.desynchronized}`);
@@ -246,10 +280,6 @@ const LowLatencyVideo: React.FC<Props> = ({
               fail('webgl-init');
               break;
             }
-          } else if (canvas.width !== width || canvas.height !== height) {
-            // Source format changed (rare) - resize to the new native resolution.
-            canvas.width = width;
-            canvas.height = height;
           }
 
           const metadata = (frame as VideoFrameWithMetadata).metadata?.();
@@ -310,9 +340,11 @@ const LowLatencyVideo: React.FC<Props> = ({
       onResolutionRef.current?.(null);
       onDebugInfoRef.current?.(null);
     };
-  }, [stream]);
+  }, [stream, fsrEnabled, targetWidth, targetHeight]);
 
-  return <canvas ref={canvasRef} className="block w-full h-full object-contain" />;
+  return <div ref={hostRef} className="w-full h-full">
+    <canvas key={`${fsrEnabled}-${targetWidth}x${targetHeight}`} ref={canvasRef} className="block w-full h-full object-contain" />
+  </div>;
 };
 
 export default LowLatencyVideo;

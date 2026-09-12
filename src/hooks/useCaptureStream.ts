@@ -221,6 +221,9 @@ export function useCaptureStream() {
         // 2) Set stream state
         setStream(media);
 
+        // Video-only capture needs no audio graph or output-device thread.
+        if (!audioTrack) return media;
+
         // 3) Set up AudioContext + GainNode (with error handling)
         try {
           const ac = new AudioContext({
@@ -251,6 +254,7 @@ export function useCaptureStream() {
           console.log('✅ Audio setup complete, final state:', ac.state);
         } catch (audioError) {
           console.error('❌ Audio setup failed:', audioError);
+          cleanup();
           // Audio errors should not crash the entire stream
         }
 

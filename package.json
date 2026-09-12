@@ -9,6 +9,9 @@
   "main": "dist-electron/index.js",
   "productName": "CapturePlayer",
   "scripts": {
+    "neural:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-neural.ps1",
+    "neural:test": "node scripts/test-neural.mjs",
+    "neural:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-neural.ps1",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -58,7 +61,8 @@
     ],
     "files": [
       "dist-electron/**",
-      "dist-vite/**"
+      "dist-vite/**",
+      "src/vendor/fsr1/LICENSE.txt"
     ],
     "directories": {
       "buildResources": "resources"

@@ -1,9 +1,59 @@
 // electron/index.ts - CapturePlayer main process
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, screen, globalShortcut } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { NeuralWorker } from './neuralWorker';
+import type { NeuralQuality } from '../src/types/neural';
 
 let mainWin: BrowserWindow | null = null;
+let neural: NeuralWorker | undefined;
+let neuralIntent = false;
+let neuralRestart: NodeJS.Timeout | undefined;
+const neuralPreferences = { quality: 'auto' as NeuralQuality, split: false, strength: 100 };
+const getNeural = () => {
+  neural ??= new NeuralWorker(process.env.CAPTUREPLAYER_NEURAL_RUNTIME || (app.isPackaged
+    ? path.join(path.dirname(app.getPath('exe')), 'neural-runtime')
+    : path.join(app.getAppPath(), '.local', 'neural-runtime')));
+  return neural;
+};
+
+ipcMain.handle('neural-status', () => getNeural().getStatus());
+function stopNeural(message = 'Off') {
+  neuralIntent = false;
+  clearTimeout(neuralRestart);
+  neural?.stop(message);
+}
+function startNeural() {
+  const win = mainWin;
+  if (!neuralIntent || !win || win.isDestroyed() || win.isMinimized()) return;
+  const bounds = win.getContentBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const handle = win.getNativeWindowHandle();
+  if (process.platform !== 'win32' || handle.length < 8) return;
+  void getNeural().start({
+    hwnd: handle.readBigUInt64LE(), width: Math.round(bounds.width * display.scaleFactor),
+    height: Math.round(bounds.height * display.scaleFactor), ...neuralPreferences
+  });
+}
+ipcMain.handle('neural-stop', () => { stopNeural(); return getNeural().getStatus(); });
+ipcMain.handle('neural-split', (_event, split: unknown) => {
+  if (typeof split === 'boolean') { neuralPreferences.split = split; getNeural().setSplit(split); }
+});
+ipcMain.handle('neural-strength', (_event, strength: unknown) => {
+  if (typeof strength === 'number' && Number.isFinite(strength)) {
+    neuralPreferences.strength = Math.round(Math.min(100, Math.max(0, strength)));
+    getNeural().setStrength(neuralPreferences.strength);
+  }
+});
+ipcMain.handle('neural-start', (event, quality: unknown, split: unknown, strength: unknown = 100) => {
+  const win = mainWin;
+  if (!win || event.sender !== win.webContents || !['auto', '720p', '900p', '1080p', '1440p'].includes(String(quality)) || typeof split !== 'boolean' || typeof strength !== 'number' || !Number.isFinite(strength)) return getNeural().getStatus();
+  Object.assign(neuralPreferences, { quality, split, strength: Math.round(Math.min(100, Math.max(0, strength))) });
+  neuralIntent = true;
+  clearTimeout(neuralRestart);
+  startNeural();
+  return getNeural().getStatus();
+});
 
 // Launch settings live in their own file because command-line switches must be
 // applied before the app is ready - long before the renderer (localStorage) exists.
@@ -50,6 +100,24 @@ function createMainWindow() {
   });
 
   mainWin = win;
+  const adaptNeural = () => {
+    if (!neuralIntent || !neural || !['active', 'starting'].includes(neural.getStatus().phase)) return;
+    clearTimeout(neuralRestart);
+    neural.pause(win.isMinimized() ? 'Paused while minimized' : 'Adjusting preview size…');
+    if (!win.isMinimized()) neuralRestart = setTimeout(startNeural, 350);
+  };
+  win.on('resize', adaptNeural);
+  win.on('minimize', adaptNeural);
+  win.on('restore', adaptNeural);
+  let previousScale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor;
+  win.on('move', () => {
+    const scale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor;
+    if (scale !== previousScale) { previousScale = scale; adaptNeural(); }
+  });
+  const displayChanged = () => adaptNeural();
+  screen.on('display-metrics-changed', displayChanged);
+  win.webContents.on('did-start-loading', () => stopNeural());
+  win.webContents.on('render-process-gone', () => stopNeural());
 
   const URL = process.env.VITE_DEV_SERVER_URL
     ? process.env.VITE_DEV_SERVER_URL
@@ -69,11 +137,18 @@ function createMainWindow() {
   win.on('leave-full-screen', () => win.webContents.send('fullscreen-changed', false));
 
   win.on('closed', () => {
+    stopNeural();
+    screen.removeListener('display-metrics-changed', displayChanged);
     mainWin = null;
   });
 }
 
-app.whenReady().then(createMainWindow);
+app.whenReady().then(() => {
+  createMainWindow();
+  globalShortcut.register('CommandOrControl+Alt+Backspace', () => stopNeural('Stopped with Ctrl+Alt+Backspace.'));
+});
+app.on('before-quit', () => stopNeural());
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

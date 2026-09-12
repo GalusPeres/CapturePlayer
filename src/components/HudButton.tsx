@@ -113,6 +113,15 @@ export default function HudButton({
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         onClick={!disabled ? onClick : undefined}
+        role="button"
+        aria-label={tooltip}
+        tabIndex={disabled || !visible ? -1 : 0}
+        onKeyDown={(event) => {
+          if (!disabled && visible && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            onClick?.();
+          }
+        }}
         className={`${positionClass} ${baseHud} ${containerHoverScale} ${cursorClass} ${
           disabled ? disabledClass : variantClass[variant]
         }`}

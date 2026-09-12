@@ -9,11 +9,17 @@ export type SimpleSelectOption = { value: string; label: string };
 export function SimpleSelect({
   options,
   value,
-  onChange
+  onChange,
+  ariaLabel,
+  disabled = false,
+  direction = 'down'
 }: {
   options: SimpleSelectOption[];
   value: string;
   onChange(val: string): void;
+  ariaLabel?: string;
+  disabled?: boolean;
+  direction?: 'up' | 'down';
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -50,8 +56,12 @@ export function SimpleSelect({
 
       {/* Trigger Button */}
       <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="w-full bg-zinc-900/60 border border-zinc-700 text-white text-sm p-2 rounded flex justify-between items-center focus:outline-none"
+        className="w-full bg-zinc-900/60 border border-zinc-700 text-white text-sm p-2 rounded flex justify-between items-center focus:outline-none disabled:opacity-40"
       >
         <span className="block truncate">{selected?.label || 'Select…'}</span>
         <svg className="w-4 h-4 ml-2 shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -62,11 +72,11 @@ export function SimpleSelect({
       {/* Options Dropdown */}
       {open && (
         <ul
-          className="
-            absolute z-10 mt-1 w-full bg-zinc-900 border border-zinc-700
+          className={`
+            absolute z-10 ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'} w-full bg-zinc-900 border border-zinc-700
             rounded max-h-48 overflow-auto text-sm leading-tight
             custom-scroll
-          "
+          `}
         >
           {options.map((o) => (
             <li

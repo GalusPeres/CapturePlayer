@@ -4,6 +4,8 @@
 // adjustments run in the shader, which keeps the canvas free of CSS filters - a
 // CSS filter would force the frame back through an extra compositing pass.
 
+import { createFsrUpscaler, fsrRcasShader } from './fsrUpscaler';
+
 export type GlFilterState = {
   brightness: number; // 1 = neutral
   contrast: number; // 1 = neutral
@@ -12,6 +14,8 @@ export type GlFilterState = {
   blurPx: number; // 0 = neutral (softness for sharpness < 100)
   sharpen: number; // 0 = neutral (0..1 for sharpness 100..200)
   crisp: boolean; // nearest-neighbor sampling ("enhanced" mode)
+  upscaler?: boolean;
+  upscaleSharpness?: number;
 };
 
 export type GlVideoPipeline = {
@@ -35,7 +39,8 @@ void main() {
 `;
 
 const FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
+precision highp float;
+precision highp int;
 uniform sampler2D u_tex;
 uniform vec2 u_texel;
 uniform float u_brightness;
@@ -44,10 +49,24 @@ uniform mat3 u_colorMatrix;
 uniform float u_sharpen;
 uniform float u_blur;
 uniform bool u_passthrough;
+uniform bool u_rcas;
+uniform float u_rcasStrength;
 in vec2 v_uv;
 out vec4 outColor;
+#ifdef CP_FSR
+${fsrRcasShader}
+#endif
 
 vec3 sampleSource() {
+#ifdef CP_FSR
+  if (u_rcas) {
+    AU4 config;
+    FsrRcasCon(config, (1.0-u_rcasStrength)*2.0);
+    vec3 color;
+    FsrRcasF(color.r,color.g,color.b,uvec2(clamp(v_uv*vec2(textureSize(u_tex,0)),vec2(0),vec2(textureSize(u_tex,0)-1))),config);
+    return color;
+  }
+#endif
   vec3 center = texture(u_tex, v_uv).rgb;
   if (u_sharpen > 0.0) {
     vec3 acc = center * (1.0 + 4.0 * u_sharpen);
@@ -166,7 +185,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
 
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
   const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-  const program = gl.createProgram();
+  let program = gl.createProgram();
   if (!program) throw new Error('Failed to create program');
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
@@ -201,17 +220,24 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  const uniforms = {
-    scale: gl.getUniformLocation(program, 'u_scale'),
-    offset: gl.getUniformLocation(program, 'u_offset'),
-    texel: gl.getUniformLocation(program, 'u_texel'),
-    brightness: gl.getUniformLocation(program, 'u_brightness'),
-    contrast: gl.getUniformLocation(program, 'u_contrast'),
-    colorMatrix: gl.getUniformLocation(program, 'u_colorMatrix'),
-    sharpen: gl.getUniformLocation(program, 'u_sharpen'),
-    blur: gl.getUniformLocation(program, 'u_blur'),
-    passthrough: gl.getUniformLocation(program, 'u_passthrough')
-  };
+  const locations = (target: WebGLProgram) => ({
+    scale: gl.getUniformLocation(target, 'u_scale'),
+    offset: gl.getUniformLocation(target, 'u_offset'),
+    texel: gl.getUniformLocation(target, 'u_texel'),
+    brightness: gl.getUniformLocation(target, 'u_brightness'),
+    contrast: gl.getUniformLocation(target, 'u_contrast'),
+    colorMatrix: gl.getUniformLocation(target, 'u_colorMatrix'),
+    sharpen: gl.getUniformLocation(target, 'u_sharpen'),
+    blur: gl.getUniformLocation(target, 'u_blur'),
+    passthrough: gl.getUniformLocation(target, 'u_passthrough'),
+    rcas: gl.getUniformLocation(target, 'u_rcas'),
+    rcasStrength: gl.getUniformLocation(target, 'u_rcasStrength')
+  });
+  const baseProgram = program;
+  const baseUniforms = locations(program);
+  let uniforms = baseUniforms;
+  let fsrProgram: WebGLProgram | undefined;
+  let fsrUniforms: ReturnType<typeof locations> | undefined;
 
   const diagnosticsCanvas = document.createElement('canvas');
   diagnosticsCanvas.width = 1;
@@ -225,6 +251,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
   let cachedCrisp = false;
   let lastLayoutKey = '';
   let disposed = false;
+  let upscaler: ReturnType<typeof createFsrUpscaler> | undefined;
 
   const setDiagnostics = (lines: string[] | null) => {
     if (!diagnosticsContext || disposed) return;
@@ -304,14 +331,43 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frame as unknown as TexImageSource);
 
+    // Upscale only when the displayed image has more pixels than the source.
+    // Preserve all source pixels when shrinking; never downscale just to run FSR.
+    const targetWidth = Math.min(4096, Math.round(width * Math.min(1, scaleX)));
+    const targetHeight = Math.min(2160, Math.round(height * Math.min(1, scaleY)));
+    const applyFsr = !!filters.upscaler && targetWidth > videoWidth && targetHeight > videoHeight;
+    if (applyFsr) {
+      if (!fsrProgram) {
+        const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+        const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER.replace('#version 300 es', '#version 300 es\n#define CP_FSR 1'));
+        fsrProgram = gl.createProgram() ?? undefined;
+        if (!fsrProgram) { gl.deleteShader(vs); gl.deleteShader(fs); throw new Error('FSR presentation allocation failed'); }
+        gl.attachShader(fsrProgram, vs); gl.attachShader(fsrProgram, fs); gl.linkProgram(fsrProgram);
+        gl.deleteShader(vs); gl.deleteShader(fs);
+        if (!gl.getProgramParameter(fsrProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(fsrProgram) || 'FSR presentation link failed');
+        fsrUniforms = locations(fsrProgram);
+      }
+      upscaler ??= createFsrUpscaler(gl);
+      const result = upscaler.render(texture!, videoWidth, videoHeight, targetWidth, targetHeight);
+      gl.bindTexture(gl.TEXTURE_2D, result);
+    }
+    const nextProgram = applyFsr ? fsrProgram! : baseProgram;
+    if (program !== nextProgram) { cachedHue = null; cachedSaturation = null; }
+    program = nextProgram;
+    uniforms = applyFsr ? fsrUniforms! : baseUniforms;
+    gl.useProgram(program);
+    gl.viewport(0, 0, width, height);
+
     gl.uniform2f(uniforms.scale, scaleX, scaleY);
     gl.uniform2f(uniforms.offset, 0, 0);
-    gl.uniform2f(uniforms.texel, 1 / videoWidth, 1 / videoHeight);
+    gl.uniform2f(uniforms.texel, 1 / (applyFsr ? targetWidth : videoWidth), 1 / (applyFsr ? targetHeight : videoHeight));
     gl.uniform1f(uniforms.brightness, filters.brightness);
     gl.uniform1f(uniforms.contrast, filters.contrast);
     gl.uniform1f(uniforms.sharpen, filters.sharpen);
     gl.uniform1f(uniforms.blur, filters.blurPx);
     gl.uniform1i(uniforms.passthrough, 0);
+    gl.uniform1i(uniforms.rcas, applyFsr && (filters.upscaleSharpness ?? 0.2) > 0 ? 1 : 0);
+    gl.uniform1f(uniforms.rcasStrength, filters.upscaleSharpness ?? 0.2);
 
     if (filters.saturation !== cachedSaturation || filters.hueDeg !== cachedHue) {
       const matrix = multiply3x3(hueRotateMatrix(filters.hueDeg), saturationMatrix(filters.saturation));
@@ -359,7 +415,9 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
       gl.deleteTexture(diagnosticsTexture);
       gl.deleteBuffer(quadBuffer);
       gl.deleteVertexArray(vao);
-      gl.deleteProgram(program);
+      gl.deleteProgram(baseProgram);
+      if (fsrProgram) gl.deleteProgram(fsrProgram);
+      upscaler?.dispose();
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     } catch {
       // Releasing GPU resources is best-effort; the context goes away with the canvas.
