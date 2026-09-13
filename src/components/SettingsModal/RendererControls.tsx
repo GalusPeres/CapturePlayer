@@ -14,9 +14,10 @@ export default function RendererControls() {
   }, []);
   const value = settings.nativeRenderer ? 'native' : settings.lowLatencyRenderer || settings.spatialUpscaler ? 'webgl' : 'standard';
   const modes = rendererModes(window.electronAPI?.platform);
-  const selected = modes.find(mode => mode.value === value)!;
   return <div className="flex items-center gap-3">
-    <InfoHint info={<><strong>{selected.label}</strong><span className="block mt-1">{selected.help}</span><span className="block mt-1">Changing the playback mode restarts capture.</span></>}>
+    <InfoHint info={<span className="flex flex-col gap-2">{modes.map(mode =>
+      <span key={mode.value}><span className="block text-white">{mode.label}</span>{mode.help}</span>
+    )}</span>}>
       <span className="cursor-help shrink-0 whitespace-nowrap">Video mode:</span>
     </InfoHint>
     <div className="flex-1 min-w-0"><SimpleSelect ariaLabel="Video playback mode" value={value}

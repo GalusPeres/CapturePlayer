@@ -17,6 +17,24 @@ const sums = files.map((file, index) => {
 });
 const checksum = path.join(output, 'SHA256SUMS.txt');
 fs.writeFileSync(checksum, `${sums.join('\n')}\n`);
+const tag = `v${version}`;
+if (process.argv.includes('--replace-existing-prerelease')) {
+  const existing = spawnSync('gh', ['release', 'view', tag, '--json', 'isPrerelease'], { cwd: root, encoding: 'utf8' });
+  if (existing.error) throw existing.error;
+  if (existing.status === 0) {
+    if (!JSON.parse(existing.stdout).isPrerelease) throw new Error('Refusing to replace a stable release.');
+    for (const args of [
+      ['release', 'upload', tag, ...files, '--clobber'],
+      ['release', 'upload', tag, checksum, '--clobber'],
+      ['release', 'edit', tag, '--title', `CapturePlayer ${version} — Test release`, '--prerelease', '--latest=false',
+        '--notes-file', path.join(root, 'docs', 'TEST-RELEASE.md')],
+    ]) {
+      const update = spawnSync('gh', args, { cwd: root, stdio: 'inherit' });
+      if (update.error || update.status !== 0) throw update.error || new Error('Prerelease replacement failed.');
+    }
+    process.exit(0);
+  }
+}
 const result = spawnSync('gh', ['release', 'create', `v${version}`, ...files, checksum,
   '--target', sha, '--title', `CapturePlayer ${version} — Test release`, '--prerelease', '--latest=false',
   '--notes-file', path.join(root, 'docs', 'TEST-RELEASE.md')], { cwd: root, stdio: 'inherit' });

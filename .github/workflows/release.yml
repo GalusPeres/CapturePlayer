@@ -119,6 +119,6 @@ jobs:
           merge-multiple: true
           path: dist/test-release
       - name: Publish test packages without replacing the stable release
-        run: node scripts/publish-test-release.mjs
+        run: node scripts/publish-test-release.mjs --replace-existing-prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

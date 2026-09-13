@@ -1,7 +1,7 @@
 // src/components/SimpleSelect.tsx - Custom dropdown select component
 import React, { useState, useEffect, useRef } from 'react';
 
-export type SimpleSelectOption = { value: string; label: string; description?: string };
+export type SimpleSelectOption = { value: string; label: string };
 
 /**
  * Simple select component with custom styling and scrollbar
@@ -96,7 +96,6 @@ export function SimpleSelect({
               `}
             >
               <span className="block truncate">{o.label}</span>
-              {o.description && <span className="block mt-1 mb-1 text-xs leading-snug opacity-75">{o.description}</span>}
             </li>
           ))}
         </ul>

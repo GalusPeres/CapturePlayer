@@ -5,7 +5,7 @@ CapturePlayer **0.5.0-beta.2** is an experimental test release, not a stable upd
 - Linux x64: AppImage with the new V4L2/DMA-BUF native backend.
 - Shared color, zoom/aspect and FSR controls; platform-aware settings hide unavailable Neural controls and check HDR capture formats.
 - Native Windows NV12 support and compatible SDR capture for OBS Virtual Camera and legacy drivers, using the same GPU presenter. Audio selection changes no longer restart video.
-- Clear video mode names: Browser playback, GPU processing (WebGL), and Direct capture (Windows/macOS/Linux), with short explanations in the selector and tooltips.
+- Clear video mode names: Browser playback, GPU processing (WebGL), and Direct capture (Windows/macOS/Linux). The dropdown uses compact single-line entries; hover over Video mode for a short explanation of all three modes.
 - Performance diagnostics are included in installed builds under View. All three modes use the same layout, showing frame delivery, long frame intervals, actual FSR processing resolution and audio state. These are software measurements, not controller-to-screen latency.
 - Audio resumes after output interruptions and retries the selected input after disconnects. Recovery leaves video running, respects No audio device and uses bounded retries. Linux uses the audio backend's interactive buffer policy.
 - Mac/Linux texture delivery keeps only the latest waiting frame when Electron is busy. This is covered by simulated transport/ownership tests; actual M1 latency still needs measurement on the device.
