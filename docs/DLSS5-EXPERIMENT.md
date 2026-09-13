@@ -5,6 +5,11 @@ preview for Windows and RTX GPUs. It runs actual NGX feature 18, using a
 locally installed experimental community runtime. It is not an official
 NVIDIA integration.
 
+The native capture renderer now supports an experimental HDR composition
+around the SDR model. FP16 window capture retains the original HDR base;
+the neural difference is applied on the GPU and displayed with FP16 HDR output.
+This is not native HDR inference. See [native renderer measurements and limits](NATIVE-RENDERER.md).
+
 ## Trying it
 
 Use the separate local **CapturePlayer Neural Test.exe** build, or run:
@@ -17,6 +22,13 @@ npm run dev
 `npm run neural:package` creates the separate local test executable under
 `.local/neural-package/win-unpacked`. It has its own app name and settings
 profile. Keep its `neural-runtime` folder next to the executable.
+
+`npm run neural:setup-exe` builds the Windows x64 NSIS installer at
+`dist/windows-neural/CapturePlayer.NeuralTest.Setup.0.4.0.exe` (version follows
+package.json). It includes both native helpers, the locally installed Neural
+runtime, app-local release VC++ DLLs and the experiment documentation. The
+installer uses a separate test app identity and is not automatically published.
+Both commands expect `native:build` and `neural:setup` to have completed.
 
 The setup needs Visual Studio C++ Build Tools and a Windows SDK. It compiles
 the pinned native helper, verifies the pinned runtime archive's SHA-256,
@@ -70,6 +82,29 @@ bypasses neural evaluation after warmup (window capture/presentation still
 runs; switch Off to remove that extra stage). At intermediate values the
 native-resolution original anchors the composite. Quality can be changed
 while active; strength and comparison updates do not restart the worker.
+
+### Fine tuning
+
+View → DLSS 5 → Fine tuning exposes model intensity, light/color tone,
+detail structure and skin structure (0–100%). These are evaluation parameters,
+separate from the final Strength blend and from the player Color/FSR controls.
+Defaults preserve the previous image: intensity/tone/structure 100%, skin Auto.
+Manual skin values enable the runtime automatic mask; Auto restores its old
+default (-1, mask off). Recognition of stylized characters is not guaranteed.
+The mask can add GPU work, so a lower skin value is not a performance setting.
+
+A 24-byte TUNE command is acknowledged at a frame boundary. Slider updates
+are coalesced to the newest values without restarting the model, capture,
+textures or presentation window. No additional image pass or pixel readback
+is added. Settings are validated on both sides and saved in neural-tuning.json
+in the app profile. Reset fine tuning affects only these four parameters.
+
+`node scripts/test-neural-tuning.mjs` runs a hidden GPU test with pipe-only
+input/output: actual output changes, exact reset, and rejection of non-finite
+or out-of-range parameters. The skin comparison holds automatic masking on
+for both endpoints to isolate the slider from the mask switch. This proves
+parameter effects, not correct face segmentation on every game. Pixel readback
+is confined to that test, never used in normal playback.
 
 The optimized path writes the BGRA-to-RGBA compute result directly into the
 input texture, removing a full-frame GPU copy. The zero 8×8 motion field is

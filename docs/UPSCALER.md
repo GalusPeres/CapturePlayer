@@ -1,8 +1,31 @@
 # FSR 1 spatial upscaling
 
-Settings → View → Advanced → **FSR 1 upscaler (experimental)** enables
-the WebGL VideoFrame renderer. Sharpness controls RCAS (0% skips it).
-The DLSS experiment remains the last entry in Advanced.
+Settings → Effects → **FSR 1 Upscaler** enables
+the native renderer's GPU upscaler when native capture is active; otherwise
+it enables the WebGL VideoFrame renderer. Sharpness controls RCAS (0% skips it).
+Neural Rendering shares the Effects tab. Controls remain visible when disabled.
+
+When capture and output dimensions match, FSR now reconstructs the next tier
+(1080p → 1440p or 1440p → 4K), resolves back with four bilinear taps, and applies
+RCAS at the final resolution. Intermediate processing is capped at 4K height
+(2160 pixels, maximum width 4096). This is spatial supersampling, not DLAA;
+it cannot access the game's original samples, depth or motion vectors. The
+player cannot infer a game's internal render resolution from its HDMI frame.
+4K → 4K therefore still bypasses this capped supersampling path.
+
+`node scripts/test-fsr-supersampling.mjs` runs a hidden synthetic WebGL GPU check
+without opening a capture device: real 4K intermediate, softened sloped edges,
+constant-color preservation, RCAS changes and exact restoration when disabled.
+On an RTX 4080, 50 warmed synthetic samples measured 0.052 ms mean / 0.055 ms p95
+with FSR off, and 0.247 ms mean / 0.251 ms p95 for 1440p → 4K → 1440p.
+These are WebGL GPU query timings for a static generated frame, not HDR/native
+capture performance, neural processing time or controller-to-display latency.
+The hidden native HDR test also covers same-size supersampling and HDR/SDR
+renderer transitions, preserving bright patches and negative gamut values.
+
+Native HDR uses a WGSL implementation with FP16 intermediates. Its current
+measurements and platform constraints are in [Native renderer](NATIVE-RENDERER.md).
+The older WebGL measurements below do not measure that HDR path.
 
 The pinned, MIT-licensed AMD FSR 1 implementation runs EASU in an intermediate
 GPU texture and RCAS together with the existing final color/presentation pass.

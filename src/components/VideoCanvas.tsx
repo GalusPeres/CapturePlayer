@@ -1,5 +1,7 @@
 // src/components/VideoCanvas.tsx - Video display with color filters and resolution detection
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import NativeVideo from './NativeVideo';
+import NativeDiagnosticsOverlay from './NativeDiagnosticsOverlay';
 import { useSettings } from '../context/SettingsContext';
 import LowLatencyVideo, { isLowLatencySupported } from './LowLatencyVideo';
 import type { FrameStats } from './LowLatencyVideo';
@@ -46,7 +48,8 @@ const VideoCanvas: React.FC<Props> = ({
   // Prefer the low-latency WebGL path (MediaStreamTrackProcessor + desynchronized
   // canvas); fall back to the classic <video> element if it is unavailable or fails.
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
-  const useGlRenderer = (settings.lowLatencyRenderer || settings.spatialUpscaler) && !glFailed && hasVideoTrack && isLowLatencySupported();
+  const nativeHdr = settings.nativeRenderer && settings.nativeHdr;
+  const useGlRenderer = !settings.nativeRenderer && (settings.lowLatencyRenderer || settings.spatialUpscaler) && !glFailed && hasVideoTrack && isLowLatencySupported();
 
   // Image Enhancement Modes - CSS image-rendering hint, applied by the browser compositor
   const getEnhancementConfig = (mode: string) => {
@@ -117,7 +120,7 @@ const VideoCanvas: React.FC<Props> = ({
   // This lets auto-aspect react to live signal changes without forcing a restart.
   // Only used on the <video> fallback path - the WebGL path reports per frame.
   useEffect(() => {
-    if (useGlRenderer) return undefined;
+    if (useGlRenderer || settings.nativeRenderer) return undefined;
 
     const video = videoRef.current;
     if (!video || !stream) {
@@ -203,7 +206,7 @@ const VideoCanvas: React.FC<Props> = ({
         video.cancelVideoFrameCallback(frameRequestId);
       }
     };
-  }, [setResolution, stream, useGlRenderer]);
+  }, [setResolution, stream, useGlRenderer, settings.nativeRenderer]);
 
   // Dev-only video timing overlay to diagnose frame pacing and stalls.
   // Only used on the <video> fallback path - the WebGL path reports via callback.
@@ -468,7 +471,9 @@ const VideoCanvas: React.FC<Props> = ({
         onDoubleClick={onDoubleClick}
         style={{ opacity: dimmed ? 0 : 1, transition: dimmed ? 'none' : 'opacity 70ms ease-out' }}
       >
-        {useGlRenderer && stream ? (
+        {settings.nativeRenderer && stream ? (
+          <NativeVideo hdr={settings.nativeHdr} zoom={zoomLevel} filters={glFilters} onResolution={setResolution} />
+        ) : useGlRenderer && stream ? (
           <LowLatencyVideo
             stream={stream}
             zoomLevel={zoomLevel}
@@ -484,11 +489,15 @@ const VideoCanvas: React.FC<Props> = ({
             muted
             playsInline
             className="w-full h-full object-contain"
-            style={videoStyle}
+            style={nativeHdr ? { objectFit: 'contain', transform: `scale(${zoomLevel / 100})` } : videoStyle}
           />
         )}
 
-        {isDev && settings.showDiagnosticsOverlay && running && !useGlRenderer && debugInfo && (
+        {isDev && settings.showDiagnosticsOverlay && running && settings.nativeRenderer && stream && (
+          <NativeDiagnosticsOverlay hdr={settings.nativeHdr} />
+        )}
+
+        {isDev && settings.showDiagnosticsOverlay && running && !settings.nativeRenderer && !useGlRenderer && debugInfo && (
           <div
             className="
               absolute top-4 left-4 z-40

@@ -1,13 +1,29 @@
 // electron/preload.ts - CapturePlayer preload script
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, sharedTexture } from 'electron';
+
+// Shared GPU frames cross worlds using the browser transfer mechanism.
+sharedTexture.setSharedTextureReceiver(async ({ importedSharedTexture }) => {
+  const frame = importedSharedTexture.getVideoFrame();
+  try { window.postMessage({ type: 'captureplayer:native-frame', frame }, '*', [frame]); }
+  finally { frame.close(); importedSharedTexture.release(); }
+});
 
 // Expose Electron APIs to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
+  platform: process.platform,
+  architecture: process.arch,
+  getNativeCaptureCapabilities: (options: unknown) => ipcRenderer.invoke('native-capture-capabilities', options),
+  startNativeCapture: (options: unknown) => ipcRenderer.invoke('native-capture-start', options),
+  stopNativeCapture: () => ipcRenderer.invoke('native-capture-stop'),
+  getNativeCaptureStatus: () => ipcRenderer.invoke('native-capture-status'),
   getNeuralStatus: () => ipcRenderer.invoke('neural-status'),
   startNeural: (quality: string, split: boolean, strength = 100) => ipcRenderer.invoke('neural-start', quality, split, strength),
   stopNeural: () => ipcRenderer.invoke('neural-stop'),
+  pauseNeuralForCapture: () => ipcRenderer.invoke('neural-capture-pause'),
+  resumeNeuralAfterCapture: () => ipcRenderer.invoke('neural-capture-ready'),
   setNeuralSplit: (split: boolean) => ipcRenderer.invoke('neural-split', split),
   setNeuralStrength: (strength: number) => ipcRenderer.invoke('neural-strength', strength),
+  setNeuralTuning: (tuning: unknown) => ipcRenderer.invoke('neural-tuning', tuning),
   isAlwaysOnTop: () => ipcRenderer.invoke('is-always-on-top'),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
   closeApp: () => ipcRenderer.invoke('close-app'),

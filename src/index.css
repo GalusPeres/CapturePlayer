@@ -2,6 +2,23 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Shared columns keep every settings slider aligned, including tooltip labels. */
+.settings-slider-row {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+.settings-slider-row > input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+.settings-slider-row > :last-child {
+  width: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* -------------------------------------------------------------
    Custom scrollbar utilities
    ------------------------------------------------------------- */

@@ -1,5 +1,6 @@
 // src/hooks/useCaptureStream.ts - Custom hook for managing capture card media streams
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { createNativeVideoStream } from './nativeVideoStream';
 import { useSettings } from '../context/SettingsContext';
 
 type DeviceOverrides = {
@@ -54,6 +55,7 @@ export function useCaptureStream() {
   const settings = useSettings();
   const [stream, setStream] = useState<MediaStream | null>(null);
 
+  const nativeRef = useRef<ReturnType<typeof createNativeVideoStream> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
@@ -98,6 +100,8 @@ export function useCaptureStream() {
 
     // 1) Cache current stream reference
     const currentStream = stream;
+    nativeRef.current?.stop(); nativeRef.current = null;
+    void window.electronAPI.stopNativeCapture?.();
 
     // 2) Reset state immediately
     setStream(null);
@@ -171,7 +175,17 @@ export function useCaptureStream() {
                 latency: 0
               };
 
-        if (videoConstraints) {
+        if (videoConstraints && settings.nativeRenderer) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const selected = devices.find(d => d.kind === 'videoinput' && d.deviceId === videoDev);
+          if (!selected?.label) throw new Error('Select a named capture device before starting native capture.');
+          const size = parseCaptureResolution(settings.captureResolution) ?? { width: 2560, height: 1440 };
+          if (!window.electronAPI.startNativeCapture) throw new Error('Native capture API is unavailable.');
+          nativeRef.current = createNativeVideoStream();
+          pendingVideoMedia = nativeRef.current.stream;
+          await window.electronAPI.startNativeCapture({ device: selected.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, ''),
+            ...size, fps: parseCaptureFrameRate(settings.captureFrameRate) ?? 60, hdr: settings.nativeHdr });
+        } else if (videoConstraints) {
           pendingVideoMedia = await navigator.mediaDevices.getUserMedia({
             video: videoConstraints,
             audio: false
@@ -261,6 +275,8 @@ export function useCaptureStream() {
         return media;
       } catch (error) {
         console.error('❌ Capture stream start failed:', error);
+        nativeRef.current?.stop(); nativeRef.current = null;
+        void window.electronAPI.stopNativeCapture?.();
         pendingVideoMedia?.getTracks().forEach((track) => track.stop());
         pendingAudioMedia?.getTracks().forEach((track) => track.stop());
         // Cleanup on error
@@ -272,6 +288,7 @@ export function useCaptureStream() {
       }
     },
     [
+      settings.nativeRenderer, settings.nativeHdr,
       settings.videoDevice,
       settings.audioDevice,
       settings.captureResolution,
@@ -321,6 +338,8 @@ export function useCaptureStream() {
     return () => {
       // console.log('🧹 Component unmounting, cleaning up...');
       cleanup();
+      nativeRef.current?.stop();
+      void window.electronAPI.stopNativeCapture?.();
 
       // Force garbage collection if available (dev only)
       if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && (window as any).gc) {

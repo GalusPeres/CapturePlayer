@@ -2,8 +2,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { NeuralQuality, NeuralStatus } from '../src/types/neural';
+import { DEFAULT_NEURAL_TUNING, normalizeNeuralTuning, type NeuralTuning } from '../src/types/neural';
 
-export type NeuralOptions = { hwnd: bigint; width: number; height: number; quality: NeuralQuality; split: boolean; strength?: number };
+export type NeuralOptions = { hwnd: bigint; width: number; height: number; quality: NeuralQuality; split: boolean; strength?: number; hdr?: boolean; vsync?: boolean };
 type Pending = { size: number; resolve: (b: Buffer) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 const MAGIC = { header: 0x33563544, frame: 0x314d5246, out: 0x3154554f, motion: 0x53544f4d, mack: 0x4b43414d, wgc: 0x57434757, wgak: 0x4b414757, window: 0x4f444e57, wack: 0x4b434157 };
 
@@ -29,6 +30,8 @@ export class NeuralWorker {
   private confirmed = false;
   private split = false;
   private strength = 100;
+  private tuning = { ...DEFAULT_NEURAL_TUNING };
+  private tuningVersion = 0;
   private selectedQuality: NeuralQuality = 'auto';
   private lastLog = '';
   private status: NeuralStatus;
@@ -39,7 +42,11 @@ export class NeuralWorker {
   available() {
     return process.platform === 'win32' && ['CapturePlayerNeural.exe', 'nvngx.dll_ns-forwarder.dll', 'nvngx_dlssnr.dll'].every(f => fs.existsSync(path.join(this.runtimeDir, f)));
   }
-  getStatus(): NeuralStatus { return { ...this.status, available: this.available(), selectedQuality: this.selectedQuality, strength: this.strength, split: this.split }; }
+  getStatus(): NeuralStatus { return { ...this.status, available: this.available(), selectedQuality: this.selectedQuality, strength: this.strength, split: this.split, tuning: { ...this.tuning } }; }
+  setTuning(value: NeuralTuning) {
+    const next = normalizeNeuralTuning(value);
+    if (JSON.stringify(next) !== JSON.stringify(this.tuning)) { this.tuning = next; ++this.tuningVersion; }
+  }
   setSplit(value: boolean) { this.split = value; }
   setStrength(value: number) { this.strength = Math.round(Math.min(100, Math.max(0, value))); }
   pause(message: string) {
@@ -106,7 +113,7 @@ export class NeuralWorker {
     this.status = { phase: 'starting', available: true, message: 'Warming up neural rendering…', quality: `${work.width} × ${work.height}`, outputWidth: width, outputHeight: height };
     const child = spawn(path.join(this.runtimeDir, 'CapturePlayerNeural.exe'), ['--video'], {
       cwd: this.runtimeDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, CAPTUREPLAYER_PARENT_PID: String(process.pid), NS_NR_SMALL: '1', NS_PHASE: '1', NS_PW: '0', NS_SPOUT: '0', NS_ARCH_SPOOF: '1' }
+      env: { ...process.env, CAPTUREPLAYER_PARENT_PID: String(process.pid), CAPTUREPLAYER_NEURAL_HDR: options.hdr ? '1' : '0', CAPTUREPLAYER_NEURAL_VSYNC: options.vsync === false ? '0' : '1', NS_NR_SMALL: '1', NS_PHASE: '1', NS_PW: '0', NS_SPOUT: '0', NS_ARCH_SPOOF: '1' }
     });
     this.child = child;
     child.stdin.on('error', () => {}); // handled by the request/exit path
@@ -129,6 +136,11 @@ export class NeuralWorker {
       for (const line of lines) {
         if (process.env.CAPTUREPLAYER_NEURAL_DEBUG === '1' && !/\[skip\]|delivered frame/.test(line)) console.error(line);
         this.lastLog = line.slice(-350);
+        if (line.includes('FP16 scRGB HDR output enabled')) this.status.hdrOutput = true;
+        const vsync = /queue limited to one frame; vsync=([01])/.exec(line);
+        if (vsync) this.status.vsync = vsync[1] === '1';
+        const captureWhite = /SDR white scale ([\d.]+)/.exec(line);
+        if (captureWhite) this.status.captureWhiteScale = Number(captureWhite[1]);
         if (line.includes('direct feature 18 confirmed')) this.confirmed = true;
         const gpu = /eval on GPU ([\d.]+)/.exec(line);
         if (gpu) this.status.gpuMs = Number(gpu[1]);
@@ -148,13 +160,18 @@ export class NeuralWorker {
     try {
       const header = Buffer.alloc(64);
       [MAGIC.header, work.width, work.height, 1, 0, 1, 0, 1, 0, 0].forEach((v, i) => header.writeUInt32LE(v, i * 4));
-      [1, 1, 1, -1].forEach((v, i) => header.writeFloatLE(v, 40 + i * 4));
+      let sentTuningVersion = this.tuningVersion;
+      const initialTuning = { ...this.tuning };
+      header.writeUInt32LE(initialTuning.skin === -1 ? 0 : 1, 32);
+      [initialTuning.intensity / 100, initialTuning.tone / 100, initialTuning.structure / 100, initialTuning.skin === -1 ? -1 : initialTuning.skin / 100]
+        .forEach((v, i) => header.writeFloatLE(v, 40 + i * 4));
       header.writeUInt32LE(width, 56); header.writeUInt32LE(height, 60);
       child.stdin.write(header);
       // This first prototype deliberately resets history each frame: no game
       // motion/depth buffers are available. It must not reuse incorrect motion.
       const motion = await this.request(command(MAGIC.motion, 8, 8), 24, 30000);
       if (motion.readUInt32LE(0) !== MAGIC.mack || motion.readUInt32LE(4) !== 1) throw new Error('Motion input setup failed');
+      this.status.appliedTuning = initialTuning;
       const wgc = Buffer.alloc(32);
       command(MAGIC.wgc, width, height).copy(wgc);
       wgc.writeBigUInt64LE(options.hwnd, 24);
@@ -179,6 +196,20 @@ export class NeuralWorker {
       const started = windowStart;
       const packet = Buffer.alloc(24 + 8 * 8 * 4); // Reuse one control packet; no frame queue.
       while (generation === this.generation) {
+        // Coalesce slider edits at a frame boundary. No restart, video copies,
+        // extra GPU pass or queued control request while inference is running.
+        if (sentTuningVersion !== this.tuningVersion) {
+          const version = this.tuningVersion, tuning = { ...this.tuning };
+          const control = Buffer.alloc(24);
+          control.writeUInt32LE(0x454e5554, 0); // TUNE
+          [tuning.intensity / 100, tuning.tone / 100, tuning.structure / 100, tuning.skin === -1 ? -1 : tuning.skin / 100]
+            .forEach((v, i) => control.writeFloatLE(v, 4 + i * 4));
+          const ack = await this.request(control, 24);
+          if (ack.readUInt32LE(0) !== 0x4b414e54 || ack.readUInt32LE(4) !== 1) throw new Error('Neural tuning update failed');
+          if (generation !== this.generation) return;
+          this.status.appliedTuning = tuning;
+          sentTuningVersion = version;
+        }
         const index = frameIndex++ >>> 0;
         packet.writeUInt32LE(MAGIC.frame, 0); packet.writeUInt32LE(index, 4);
         packet.writeUInt32LE(1, 8); // reset temporal history

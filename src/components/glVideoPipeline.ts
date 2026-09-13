@@ -5,6 +5,8 @@
 // CSS filter would force the frame back through an extra compositing pass.
 
 import { createFsrUpscaler, fsrRcasShader } from './fsrUpscaler';
+import { getFsrSize } from './fsrSizing';
+import { createFsrResolve } from './fsrResolve';
 
 export type GlFilterState = {
   brightness: number; // 1 = neutral
@@ -153,6 +155,11 @@ function toColumnMajor(m: number[]): Float32Array {
   return new Float32Array([m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]);
 }
 
+// Row-major matrix shared by the SDR and HDR presenters.
+export function getVideoColorMatrix(saturation: number, hueDeg: number): number[] {
+  return multiply3x3(hueRotateMatrix(hueDeg), saturationMatrix(saturation));
+}
+
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
   if (!shader) throw new Error('Failed to create shader');
@@ -252,6 +259,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
   let lastLayoutKey = '';
   let disposed = false;
   let upscaler: ReturnType<typeof createFsrUpscaler> | undefined;
+  let resolve: ReturnType<typeof createFsrResolve> | undefined;
 
   const setDiagnostics = (lines: string[] | null) => {
     if (!diagnosticsContext || disposed) return;
@@ -331,11 +339,13 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frame as unknown as TexImageSource);
 
-    // Upscale only when the displayed image has more pixels than the source.
-    // Preserve all source pixels when shrinking; never downscale just to run FSR.
-    const targetWidth = Math.min(4096, Math.round(width * Math.min(1, scaleX)));
-    const targetHeight = Math.min(2160, Math.round(height * Math.min(1, scaleY)));
-    const applyFsr = !!filters.upscaler && targetWidth > videoWidth && targetHeight > videoHeight;
+    const target = getFsrSize(videoWidth, videoHeight, width * Math.min(1, scaleX), height * Math.min(1, scaleY));
+    const targetWidth = target.resolveWidth, targetHeight = target.resolveHeight;
+    const applyFsr = !!filters.upscaler && target.width > videoWidth && target.height > videoHeight;
+    const mode = applyFsr ? target.supersampling ? 'supersampling' : 'fsr1' : 'bypass';
+    if (canvas.dataset.upscaler !== mode) canvas.dataset.upscaler = mode;
+    const internalSize = applyFsr ? `${target.width}x${target.height}` : `${videoWidth}x${videoHeight}`;
+    if (canvas.dataset.fsrInternalSize !== internalSize) canvas.dataset.fsrInternalSize = internalSize;
     if (applyFsr) {
       if (!fsrProgram) {
         const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
@@ -348,7 +358,11 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
         fsrUniforms = locations(fsrProgram);
       }
       upscaler ??= createFsrUpscaler(gl);
-      const result = upscaler.render(texture!, videoWidth, videoHeight, targetWidth, targetHeight);
+      let result = upscaler.render(texture!, videoWidth, videoHeight, target.width, target.height);
+      if (target.supersampling) {
+        resolve ??= createFsrResolve(gl);
+        result = resolve.render(result, targetWidth, targetHeight);
+      }
       gl.bindTexture(gl.TEXTURE_2D, result);
     }
     const nextProgram = applyFsr ? fsrProgram! : baseProgram;
@@ -418,6 +432,7 @@ export function createGlVideoPipeline(canvas: HTMLCanvasElement): GlVideoPipelin
       gl.deleteProgram(baseProgram);
       if (fsrProgram) gl.deleteProgram(fsrProgram);
       upscaler?.dispose();
+      resolve?.dispose();
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     } catch {
       // Releasing GPU resources is best-effort; the context goes away with the canvas.

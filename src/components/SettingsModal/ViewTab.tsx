@@ -1,9 +1,8 @@
+import RendererControls from './RendererControls';
 ﻿// src/components/SettingsModal/DisplayTab.tsx - Aspect ratio and zoom controls
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import InfoHint from './InfoHint';
-import NeuralControls from './NeuralControls';
-import UpscalerControls from './UpscalerControls';
 
 const aspectModes = [
   { value: 'auto', label: 'Auto' },
@@ -57,13 +56,6 @@ export function DisplayTab({
 
   const vsyncOn = !vsyncDisabled;
   const vsyncNeedsRestart = vsyncDisabled !== vsyncDisabledActive;
-  const toggleWebGl = () => {
-    if (settings.lowLatencyRenderer || settings.spatialUpscaler) {
-      settings.setSpatialUpscaler(false);
-      settings.setLowLatencyRenderer(false);
-    } else settings.setLowLatencyRenderer(true);
-  };
-
   // Determine current aspect ratio mode
   let aspectMode: string = settings.autoAspectRatio ? 'auto' : settings.manualAspectRatio;
   if (
@@ -160,7 +152,7 @@ export function DisplayTab({
 
       {/* Zoom Control */}
       <div>
-        <div className="flex items-center gap-3">
+        <div className="settings-slider-row">
           <InfoHint
             info={
               <>
@@ -198,46 +190,10 @@ export function DisplayTab({
         </div>
       </div>
 
-      {/* Advanced */}
+      {/* Playback */}
       <div>
-        <div className="mb-1">Advanced:</div>
         <div className="flex flex-col gap-2">
-          {/* Low-latency renderer */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleWebGl}
-              className={`
-                w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
-                ${
-                  settings.lowLatencyRenderer
-                    ? 'bg-gradient-to-br from-blue-600 to-indigo-500 border-blue-500'
-                    : 'bg-gradient-to-br from-zinc-800/50 to-zinc-700/50 border-zinc-600/50 hover:from-zinc-700/70 hover:to-zinc-600/70 hover:border-zinc-500/70'
-                }
-                focus:outline-none focus:ring-2 focus:ring-blue-500/50
-              `}
-            >
-              {settings.lowLatencyRenderer && (
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-            <InfoHint
-              info={
-                <>
-                  Alternative video renderer. Can reduce input lag on 60 Hz displays with VSync on. Turn off if you see
-                  glitches.
-                </>
-              }
-            >
-              <span
-                onClick={toggleWebGl}
-                className="text-sm text-white/90 cursor-pointer select-none"
-              >
-                WebGL renderer (experimental)
-              </span>
-            </InfoHint>
-          </div>
+          <RendererControls />
 
           {/* VSync (launch flag, needs restart) */}
           <div className="flex items-center gap-3">
@@ -329,8 +285,7 @@ export function DisplayTab({
               </span>
             </div>
           )}
-          <UpscalerControls signalInfo={signalInfo} />
-          <NeuralControls hasSignal={!!signalInfo} />
+
         </div>
       </div>
     </>
@@ -372,7 +327,6 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
   };
 
   const resetView = () => {
-    void window.electronAPI.stopNeural?.();
     settings.setAutoAspectRatio(true);
     if (isFullscreen) {
       setFullscreenZoom(100);
@@ -380,9 +334,9 @@ export function useViewTabActions(isFullscreen = false, fullscreenZoom = 100, se
       settings.setZoomLevel(100);
     }
     // Advanced section defaults
+    settings.setNativeRenderer(false);
+    settings.setNativeHdr(false);
     settings.setLowLatencyRenderer(false);
-    settings.setSpatialUpscaler(false);
-    settings.setUpscalerSharpness(20);
     settings.setShowDiagnosticsOverlay(false);
     void window.electronAPI.setDisableGpuVsync?.(false);
     // The vsync checkbox holds local state inside DisplayTab - tell it to re-read.

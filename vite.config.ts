@@ -11,11 +11,20 @@ export default defineConfig({
     electron([
       {
         /* Main-Process */
-        entry: 'electron/index.ts'
+        entry: 'electron/index.ts',
+        onstart({ startup }) {
+          const port = process.env.CAPTUREPLAYER_DEBUG_PORT;
+          return port && /^\d{4,5}$/.test(port)
+            ? startup(['.', `--remote-debugging-port=${port}`])
+            : startup();
+        }
       },
       {
         /* Preload */
-        entry: 'electron/preload.ts'
+        entry: 'electron/preload.ts',
+        // Only the main build owns the process. Two simultaneous startup()
+        // calls can both kill the same Windows PID and terminate Vite.
+        onstart({ reload }) { reload(); }
       }
     ]),
 

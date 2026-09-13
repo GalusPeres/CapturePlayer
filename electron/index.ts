@@ -2,37 +2,95 @@
 import { app, BrowserWindow, ipcMain, shell, screen, globalShortcut } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { createNativeCapture } from './nativeCaptureFactory';
 import { NeuralWorker } from './neuralWorker';
 import type { NeuralQuality } from '../src/types/neural';
+import { normalizeNeuralTuning } from '../src/types/neural';
 
 let mainWin: BrowserWindow | null = null;
 let neural: NeuralWorker | undefined;
+const nativeCapture = createNativeCapture();
+ipcMain.handle('native-capture-status', () => ({ ...nativeCapture.status, available: nativeCapture.available() }));
+ipcMain.handle('native-capture-capabilities', (event, options) => {
+  if (event.sender !== mainWin?.webContents || !options || typeof options.device !== 'string' || options.device.length > 250 ||
+    ![options.width, options.height, options.fps].every(Number.isInteger) || options.width < 64 || options.width > 4096 ||
+    options.height < 64 || options.height > 2160 || options.fps < 1 || options.fps > 120) throw new Error('Invalid capability query');
+  return 'inspect' in nativeCapture ? nativeCapture.inspect(options) : { hdrInputPossible: nativeCapture.available(), reason: 'HDR10/PQ input must match the console and capture-card settings.' };
+});
+ipcMain.handle('native-capture-stop', () => nativeCapture.stop());
+ipcMain.handle('native-capture-start', async (event, options) => {
+  if (event.sender !== mainWin?.webContents || !options || typeof options.device !== 'string' || options.device.length > 250 ||
+    typeof options.hdr !== 'boolean' || ![options.width, options.height, options.fps].every(Number.isInteger) ||
+    options.width < 64 || options.width > 4096 || options.height < 64 || options.height > 2160 || options.fps < 1 || options.fps > 120) throw new Error('Invalid native capture options');
+  pauseNeuralForCapture();
+  await nativeCapture.start(options, event.sender);
+});
 let neuralIntent = false;
+let neuralCapturePaused = false;
 let neuralRestart: NodeJS.Timeout | undefined;
 const neuralPreferences = { quality: 'auto' as NeuralQuality, split: false, strength: 100 };
+const neuralTuningPath = path.join(app.getPath('userData'), 'neural-tuning.json');
+let neuralTuning = normalizeNeuralTuning(undefined);
+try { neuralTuning = normalizeNeuralTuning(JSON.parse(fs.readFileSync(neuralTuningPath, 'utf8'))); } catch { /* First launch or invalid file: use defaults. */ }
+let tuningSaveTimer: NodeJS.Timeout | undefined;
+function saveNeuralTuning() {
+  clearTimeout(tuningSaveTimer); tuningSaveTimer = undefined;
+  try {
+    fs.mkdirSync(path.dirname(neuralTuningPath), { recursive: true });
+    fs.writeFileSync(neuralTuningPath, JSON.stringify(neuralTuning));
+  } catch (error) { console.error('Could not save neural tuning', error); }
+}
+app.on('before-quit', () => { if (tuningSaveTimer) saveNeuralTuning(); });
 const getNeural = () => {
   neural ??= new NeuralWorker(process.env.CAPTUREPLAYER_NEURAL_RUNTIME || (app.isPackaged
     ? path.join(path.dirname(app.getPath('exe')), 'neural-runtime')
     : path.join(app.getAppPath(), '.local', 'neural-runtime')));
+  neural.setTuning(neuralTuning);
   return neural;
 };
+
+ipcMain.handle('neural-tuning', (event, value: unknown) => {
+  if (event.sender !== mainWin?.webContents || !value || typeof value !== 'object') throw new Error('Invalid neural tuning');
+  neuralTuning = normalizeNeuralTuning(value);
+  getNeural().setTuning(neuralTuning);
+  clearTimeout(tuningSaveTimer);
+  tuningSaveTimer = setTimeout(saveNeuralTuning, 400);
+  return neuralTuning;
+});
 
 ipcMain.handle('neural-status', () => getNeural().getStatus());
 function stopNeural(message = 'Off') {
   neuralIntent = false;
+  neuralCapturePaused = false;
   clearTimeout(neuralRestart);
   neural?.stop(message);
 }
+function pauseNeuralForCapture() {
+  if (!neuralIntent || !neural || !['active', 'starting'].includes(neural.getStatus().phase)) return;
+  neuralCapturePaused = true;
+  clearTimeout(neuralRestart);
+  neural.pause('Waiting for capture to restart…');
+}
+ipcMain.handle('neural-capture-pause', (event) => {
+  if (event.sender !== mainWin?.webContents) return;
+  pauseNeuralForCapture();
+});
+ipcMain.handle('neural-capture-ready', (event) => {
+  if (event.sender !== mainWin?.webContents || !neuralCapturePaused) return;
+  neuralCapturePaused = false;
+  if (neuralIntent) startNeural();
+});
 function startNeural() {
   const win = mainWin;
-  if (!neuralIntent || !win || win.isDestroyed() || win.isMinimized()) return;
+  if (!neuralIntent || neuralCapturePaused || !win || win.isDestroyed() || win.isMinimized()) return;
   const bounds = win.getContentBounds();
   const display = screen.getDisplayMatching(bounds);
   const handle = win.getNativeWindowHandle();
   if (process.platform !== 'win32' || handle.length < 8) return;
   void getNeural().start({
     hwnd: handle.readBigUInt64LE(), width: Math.round(bounds.width * display.scaleFactor),
-    height: Math.round(bounds.height * display.scaleFactor), ...neuralPreferences
+    height: Math.round(bounds.height * display.scaleFactor), hdr: nativeCapture.status.phase === 'active' && !!nativeCapture.status.hdr,
+    vsync: !app.commandLine.hasSwitch('disable-gpu-vsync'), ...neuralPreferences
   });
 }
 ipcMain.handle('neural-stop', () => { stopNeural(); return getNeural().getStatus(); });
@@ -116,8 +174,8 @@ function createMainWindow() {
   });
   const displayChanged = () => adaptNeural();
   screen.on('display-metrics-changed', displayChanged);
-  win.webContents.on('did-start-loading', () => stopNeural());
-  win.webContents.on('render-process-gone', () => stopNeural());
+  win.webContents.on('did-start-loading', () => { stopNeural(); nativeCapture.stop(); });
+  win.webContents.on('render-process-gone', () => { stopNeural(); nativeCapture.stop(); });
 
   const URL = process.env.VITE_DEV_SERVER_URL
     ? process.env.VITE_DEV_SERVER_URL
@@ -137,7 +195,7 @@ function createMainWindow() {
   win.on('leave-full-screen', () => win.webContents.send('fullscreen-changed', false));
 
   win.on('closed', () => {
-    stopNeural();
+    stopNeural(); nativeCapture.stop();
     screen.removeListener('display-metrics-changed', displayChanged);
     mainWin = null;
   });
@@ -147,7 +205,7 @@ app.whenReady().then(() => {
   createMainWindow();
   globalShortcut.register('CommandOrControl+Alt+Backspace', () => stopNeural('Stopped with Ctrl+Alt+Backspace.'));
 });
-app.on('before-quit', () => stopNeural());
+app.on('before-quit', () => { stopNeural(); nativeCapture.stop(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('window-all-closed', () => {

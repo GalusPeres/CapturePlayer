@@ -1,6 +1,6 @@
 {
   "name": "captureplayer",
-  "version": "0.4.0",
+  "version": "0.5.0-beta.1",
   "description": "Electron + Vite + React + Tailwind CapturePlayer – Play your capture card instantly and share with Discord.",
   "author": {
     "name": "galusperes"
@@ -9,9 +9,12 @@
   "main": "dist-electron/index.js",
   "productName": "CapturePlayer",
   "scripts": {
+    "native:build": "node scripts/build-native.mjs",
+    "native:test": "node scripts/test-native-hdr.mjs",
     "neural:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-neural.ps1",
     "neural:test": "node scripts/test-neural.mjs",
     "neural:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-neural.ps1",
+    "neural:setup-exe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-neural.ps1 -Setup",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -51,6 +54,7 @@
   },
   "build": {
     "asar": true,
+    "afterPack": "scripts/verify-native-package.cjs",
     "publish": {
       "provider": "github",
       "publishAutoUpdate": false
@@ -68,6 +72,9 @@
       "buildResources": "resources"
     },
     "win": {
+      "extraFiles": [
+        { "from": ".local/native-capture", "to": "native-capture", "filter": ["CapturePlayerCapture.exe", "*.dll"] }
+      ],
       "icon": "src/assets/icons/icon.ico",
       "target": [
         {
@@ -96,6 +103,11 @@
       "writeUpdateInfo": false
     },
     "mac": {
+      "extraResources": [{ "from": ".local/native-addon/captureplayer.node", "to": "native-capture/captureplayer.node" }],
+      "extendInfo": {
+        "NSCameraUsageDescription": "CapturePlayer displays live video from your selected camera or capture card.",
+        "NSMicrophoneUsageDescription": "CapturePlayer plays audio from your selected capture device."
+      },
       "icon": "src/assets/icons/icon.png",
       "category": "public.app-category.entertainment",
       "identity": null,
@@ -109,6 +121,7 @@
       ]
     },
     "linux": {
+      "extraResources": [{ "from": ".local/native-addon/captureplayer.node", "to": "native-capture/captureplayer.node" }],
       "icon": "src/assets/icons/icon.png",
       "category": "AudioVideo",
       "target": [

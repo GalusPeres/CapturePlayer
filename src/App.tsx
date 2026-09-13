@@ -6,16 +6,25 @@ import VideoCanvas from './components/VideoCanvas';
 import DragBar from './components/DragBar';
 import HoverControls from './components/HoverControls';
 import SettingsModal from './components/SettingsModal';
-import type { NeuralQuality, NeuralStatus } from './types/neural';
+import type { NeuralQuality, NeuralStatus, NeuralTuning } from './types/neural';
 
 declare global {
   interface Window {
     electronAPI: {
+      startNativeCapture?: (options: { device: string; width: number; height: number; fps: number; hdr: boolean }) => Promise<void>;
+      stopNativeCapture?: () => Promise<void>;
+      platform?: string;
+      architecture?: string;
+      getNativeCaptureCapabilities?: (options: { device: string; width: number; height: number; fps: number; hdr: boolean }) => Promise<{ hdrInputPossible: boolean; reason: string }>;
+      getNativeCaptureStatus?: () => Promise<{ phase: string; message: string; available: boolean; fps?: number; dropped?: number; hdr?: boolean }>;
       getNeuralStatus?: () => Promise<NeuralStatus>;
       startNeural?: (quality: NeuralQuality, split: boolean, strength?: number) => Promise<NeuralStatus>;
       stopNeural?: () => Promise<NeuralStatus>;
+      pauseNeuralForCapture?: () => Promise<void>;
+      resumeNeuralAfterCapture?: () => Promise<void>;
       setNeuralSplit?: (split: boolean) => Promise<void>;
       setNeuralStrength?: (strength: number) => Promise<void>;
+      setNeuralTuning?: (tuning: NeuralTuning) => Promise<NeuralTuning>;
       isAlwaysOnTop: () => Promise<boolean>;
       setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
       closeApp: () => void;
@@ -40,8 +49,10 @@ export default function App() {
   const settings = useSettings();
 
   const [running, setRunning] = useState(false);
+  const captureRestartRef = useRef(false);
+  const neuralResumePendingRef = useRef(false);
   useEffect(() => {
-    if (!running) void window.electronAPI.stopNeural?.();
+    if (!running && !captureRestartRef.current) void window.electronAPI.stopNeural?.();
   }, [running, stream]);
   const [showSettings, setShowSettings] = useState(false);
   const [hideCursor, setHideCursor] = useState(false);
@@ -69,6 +80,13 @@ export default function App() {
 
   // Signal info (Resolution + FPS)
   const [resolution, setResolution] = useState<{ w: number; h: number; fps?: number } | null>(null);
+  useEffect(() => {
+    // Resume only after the new renderer has actually delivered a frame.
+    if (running && !isProcessing && resolution && neuralResumePendingRef.current) {
+      neuralResumePendingRef.current = false;
+      void window.electronAPI.resumeNeuralAfterCapture?.();
+    }
+  }, [running, isProcessing, resolution]);
 
   // Current device selection (may differ from saved settings)
   const [currentVideoDevice, setCurrentVideoDevice] = useState(settings.videoDevice);
@@ -384,8 +402,12 @@ export default function App() {
       }
 
       setProcessingWithTimeout(true);
-
+      captureRestartRef.current = true;
+      neuralResumePendingRef.current = false;
+      let restarted = false;
       try {
+        await window.electronAPI.pauseNeuralForCapture?.();
+        setResolution(null);
         if (running) {
           console.log('⏹️ Stopping current capture...');
           setRunning(false);
@@ -408,6 +430,8 @@ export default function App() {
 
         console.log('▶️ Starting capture with new devices...');
         await start({ videoDevice: videoDev, audioDevice: audioDev });
+        restarted = true;
+        neuralResumePendingRef.current = videoDev !== '';
         setActiveVideoDevice(videoDev);
         setActiveAudioDevice(audioDev);
         setActiveCaptureResolution(settings.captureResolution);
@@ -421,17 +445,29 @@ export default function App() {
         try {
           console.log('🔄 Attempting fallback to previous devices...');
           await start();
+          restarted = true;
+          neuralResumePendingRef.current = settings.videoDevice !== '';
           setRunning(true);
         } catch (fallbackError) {
           console.error('❌ Fallback also failed:', fallbackError);
           setRunning(false);
         }
       } finally {
+        captureRestartRef.current = false;
+        if (!restarted || !neuralResumePendingRef.current) void window.electronAPI.stopNeural?.();
         setProcessingWithTimeout(false);
       }
     },
     [isProcessing, running, settings, start, stop]
   );
+
+  const previousNativeMode = useRef(`${settings.nativeRenderer}:${settings.nativeHdr}`);
+  useEffect(() => {
+    const mode = `${settings.nativeRenderer}:${settings.nativeHdr}`;
+    if (previousNativeMode.current === mode || isProcessing) return;
+    previousNativeMode.current = mode;
+    if (running) void handleApplyDevices(currentVideoDevice, currentAudioDevice);
+  }, [settings.nativeRenderer, settings.nativeHdr, running, isProcessing, handleApplyDevices, currentVideoDevice, currentAudioDevice]);
 
   const hideControls = !showSettings && running && (hideCursor || !mouseInside);
   const hideAppCursor = !showSettings && running && hideCursor;

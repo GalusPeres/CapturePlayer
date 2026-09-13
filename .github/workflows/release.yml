@@ -9,6 +9,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      test_release:
+        description: Publish a prerelease after all platform builds pass
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,6 +36,21 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build native capture for the runner platform
+        run: npm run native:build
+
+      - name: Test portable native frame ownership
+        if: runner.os != 'Windows'
+        run: node scripts/test-portable-native.mjs
+
+      - name: Verify HDR shaders on software GPU
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-neural-capture-color.ps1 -Warp
 
       - name: Build renderer and electron bundles
         run: npm run build
@@ -59,3 +79,22 @@ jobs:
             dist/*.AppImage
             dist/*.dmg
           if-no-files-found: error
+
+  publish-test-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.test_release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: captureplayer-*
+          merge-multiple: true
+          path: dist/test-release
+      - name: Publish test packages without replacing the stable release
+        run: node scripts/publish-test-release.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

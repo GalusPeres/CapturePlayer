@@ -5,13 +5,15 @@ import BasicTab from './DevicesTab';
 import DisplayTab, { useViewTabActions } from './ViewTab';
 import ColorTab, { useColorTabActions } from './ColorTab';
 import AboutTab from './AboutTab';
+import NeuralControls from './NeuralControls';
+import UpscalerControls from './UpscalerControls';
 import playIcon from '../../assets/icons/play.png';
 import stopIcon from '../../assets/icons/stop.svg';
 
 type SignalInfo = { w: number; h: number; fps?: number } | null;
 type Position = { x: number; y: number };
 type RelativePosition = { x: number; y: number };
-type SettingsTab = 'devices' | 'view' | 'color' | 'about';
+type SettingsTab = 'devices' | 'view' | 'color' | 'effects' | 'about';
 type TabScrollPositions = Record<SettingsTab, number>;
 
 const MODAL_WIDTH = 384; // w-96
@@ -28,6 +30,7 @@ const DEFAULT_SCROLL_POSITIONS: TabScrollPositions = {
   devices: 0,
   view: 0,
   color: 0,
+  effects: 0,
   about: 0
 };
 
@@ -159,10 +162,12 @@ export default function SettingsModal({
       e.preventDefault();
       if (tab === 'devices') changeTab('view');
       else if (tab === 'view') changeTab('color');
-      else if (tab === 'color') changeTab('about');
+      else if (tab === 'color') changeTab('effects');
+      else if (tab === 'effects') changeTab('about');
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (tab === 'about') changeTab('color');
+      if (tab === 'about') changeTab('effects');
+      else if (tab === 'effects') changeTab('color');
       else if (tab === 'color') changeTab('view');
       else if (tab === 'view') changeTab('devices');
     }
@@ -459,6 +464,8 @@ export default function SettingsModal({
             >
               Color
             </button>
+            <button role="tab" aria-selected={tab === 'effects'} onClick={() => changeTab('effects')}
+              className={"flex-1 py-2 text-center border border-transparent rounded-t-lg focus:outline-none transition-colors " + (tab === 'effects' ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40' : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40')}>Effects</button>
             <button
               role="tab"
               aria-selected={tab === 'about'}
@@ -502,6 +509,11 @@ export default function SettingsModal({
             />
           ) : tab === 'color' ? (
             <ColorTab />
+          ) : tab === 'effects' ? (
+            <>
+              <section className="space-y-3" aria-label="Upscaling"><UpscalerControls /></section>
+              {window.electronAPI?.platform === 'win32' && <section className="space-y-3 pt-3 border-t border-zinc-600/40" aria-label="Neural rendering"><NeuralControls hasSignal={running} /></section>}
+            </>
           ) : (
             <AboutTab />
           )}
@@ -612,6 +624,9 @@ export default function SettingsModal({
                 </button>
               )
             )
+          ) : tab === 'effects' ? (
+            <button type={window.electronAPI?.platform === 'win32' ? 'reset' : 'button'} form={window.electronAPI?.platform === 'win32' ? 'neural-settings' : undefined} onClick={() => { settings.setSpatialUpscaler(false); settings.setUpscalerSharpness(20); }}
+              className="px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 border border-blue-500/30 text-white rounded-xl focus:outline-none transition-all">Reset</button>
           ) : (
             <div className="text-center text-white/40 text-xs space-y-2">
               <p>

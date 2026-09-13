@@ -120,14 +120,14 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
       setCaptureResolution('auto');
     }
 
-    if (!captureFrameRateOptions.some((option) => option.value === captureFrameRate)) {
+    if (!captureFrameRateOptions.some((option) => option.value === captureFrameRate) || (settings.nativeRenderer && captureFrameRate === '144')) {
       setCaptureFrameRate('auto');
     }
-  }, [captureFrameRate, captureResolution, setCaptureFrameRate, setCaptureResolution]);
+  }, [captureFrameRate, captureResolution, setCaptureFrameRate, setCaptureResolution, settings.nativeRenderer]);
 
   // Format signal info display text
   let signalTxt = signalInfo?.w && signalInfo?.h ? `Source: ${signalInfo.w}x${signalInfo.h}` : '';
-  if (signalInfo?.fps) signalTxt += `@${signalInfo.fps}FPS`;
+  if (signalInfo?.fps && Number.isFinite(signalInfo.fps)) signalTxt += ` @ ${signalInfo.fps.toLocaleString(undefined, { maximumFractionDigits: 1 })} FPS`;
 
   return (
     <>
@@ -172,7 +172,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
         <div>
           <label className="block mb-1">FPS:</label>
           <SimpleSelect
-            options={captureFrameRateOptions}
+            options={settings.nativeRenderer ? captureFrameRateOptions.filter(option => option.value !== '144') : captureFrameRateOptions}
             value={captureFrameRate}
             onChange={(value) => setCaptureFrameRate(value)}
           />
@@ -193,7 +193,7 @@ export default function BasicTab({ localVideo, setLocalVideo, localAudio, setLoc
       </div>
 
       {/* Volume Control */}
-      <div className="flex items-center gap-3">
+      <div className="settings-slider-row">
         <label className="w-20 shrink-0">Volume:</label>
         <input
           type="range"

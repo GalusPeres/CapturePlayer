@@ -36,6 +36,10 @@ export type Settings = {
   autostartWithDevices: boolean;
   showDiagnosticsOverlay: boolean;
   lowLatencyRenderer: boolean;
+  nativeRenderer: boolean;
+  nativeHdr: boolean;
+  setNativeRenderer(v: boolean): void;
+  setNativeHdr(v: boolean): void;
   spatialUpscaler: boolean;
   upscalerSharpness: number;
 
@@ -119,6 +123,8 @@ const DEFAULT_SETTINGS = {
   autostartWithDevices: false,
   showDiagnosticsOverlay: false,
   // Experimental render path - opt-in.
+  nativeRenderer: false,
+  nativeHdr: false,
   spatialUpscaler: false,
   upscalerSharpness: 20,
   lowLatencyRenderer: false
@@ -157,6 +163,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     customRatios,
     autostartWithDevices,
     showDiagnosticsOverlay,
+    nativeRenderer, nativeHdr,
     spatialUpscaler,
     upscalerSharpness,
     lowLatencyRenderer
@@ -211,6 +218,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setCustomRatios = useMemo(() => createSetter('customRatios'), [createSetter]);
   const setAutostartWithDevices = useMemo(() => createSetter('autostartWithDevices'), [createSetter]);
   const setShowDiagnosticsOverlay = useMemo(() => createSetter('showDiagnosticsOverlay'), [createSetter]);
+  const setNativeRenderer = useMemo(() => createSetter('nativeRenderer'), [createSetter]);
+  const setNativeHdr = useMemo(() => createSetter('nativeHdr'), [createSetter]);
   const setSpatialUpscaler = useMemo(() => createSetter('spatialUpscaler'), [createSetter]);
   const setUpscalerSharpness = useMemo(() => createSetter('upscalerSharpness'), [createSetter]);
   const setLowLatencyRenderer = useMemo(() => createSetter('lowLatencyRenderer'), [createSetter]);
@@ -239,7 +248,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       customRatios,
       autostartWithDevices,
       showDiagnosticsOverlay,
-      spatialUpscaler,
+      nativeRenderer, nativeHdr,
+    spatialUpscaler,
       upscalerSharpness,
       lowLatencyRenderer,
       setVideoDevice,
@@ -264,6 +274,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setCustomRatios,
       setAutostartWithDevices,
       setShowDiagnosticsOverlay,
+      setNativeRenderer, setNativeHdr,
       setSpatialUpscaler,
       setUpscalerSharpness,
       setLowLatencyRenderer
@@ -291,7 +302,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       customRatios,
       autostartWithDevices,
       showDiagnosticsOverlay,
-      spatialUpscaler,
+      nativeRenderer, nativeHdr,
+    spatialUpscaler,
       upscalerSharpness,
       lowLatencyRenderer,
       setVideoDevice,
@@ -316,6 +328,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setCustomRatios,
       setAutostartWithDevices,
       setShowDiagnosticsOverlay,
+      setNativeRenderer, setNativeHdr,
       setSpatialUpscaler,
       setUpscalerSharpness,
       setLowLatencyRenderer

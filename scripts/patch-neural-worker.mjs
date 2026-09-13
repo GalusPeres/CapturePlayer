@@ -2,6 +2,8 @@
 // source and its complete license remain in .local/neural-build.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { patchNeuralHdr } from './patch-neural-hdr.mjs';
 const root = process.argv[2];
 if (!root) throw new Error('Expected a native build directory');
 const native = path.join(root, 'native');
@@ -11,7 +13,7 @@ function replace(before, after) {
   code = code.replace(before, after);
 }
 replace('#include "../src/feed_ipc.h"', '#include "src/feed_ipc.h"');
-replace('#include <vector>', '#include <vector>\n#include <memory>');
+replace('#include <vector>', '#include <vector>\n#include <memory>\n#include <cmath>');
 replace('static VideoHeader g_video_options = {};', 'static double g_cp_frame_start = 0.0;\nstatic VideoHeader g_video_options = {};');
 replace('struct WgcSession\n{', 'struct WgcSession\n{\n    std::shared_ptr<void> frame_event;');
 // Documented WinRT ABI, usable with the installed 22621 SDK as well as newer
@@ -98,6 +100,10 @@ static double PhaseNow();
 static bool CpWaitablePresent() {
     char value[8] = {}; GetEnvironmentVariableA("CAPTUREPLAYER_WAITABLE_PRESENT", value, sizeof(value));
     return value[0] != '0';
+}
+static UINT CpPresentInterval() {
+    static const UINT interval = [] { char value[8] = {}; GetEnvironmentVariableA("CAPTUREPLAYER_NEURAL_VSYNC",value,sizeof(value)); return value[0]=='0'?0u:1u; }();
+    return interval;
 }
 static void CpRecordPresent() {
     g_cp_wait_present = true;
@@ -220,4 +226,35 @@ replace('    if (ts)\n        h.list->ResolveQueryData', `    if (!v.nr_small &&
     }
     if (ts)
         h.list->ResolveQueryData`);
+// A compact update command changes evaluation parameters between frames.
+// It does not recreate the feature, capture pool, textures or swapchain.
+replace('    if (fh.magic == SHM_MAGIC)', `    if (fh.magic == 0x454e5554u) return 10; // TUNE, four floats in the 24-byte header
+    if (fh.magic == SHM_MAGIC)`);
+replace('        if (msg == 3)', `        if (msg == 10) {
+            float values[4];
+            memcpy(values, reinterpret_cast<const BYTE *>(&fh) + 4, sizeof(values));
+            bool valid = true;
+            for (int i = 0; i < 4; ++i)
+                valid = valid && std::isfinite(values[i]) &&
+                    ((values[i] >= 0.0f && values[i] <= 1.0f) || (i == 3 && values[i] == -1.0f));
+            if (valid) {
+                g_video_options.intensity = values[0];
+                g_video_options.local_tone = values[1];
+                g_video_options.local_structure = values[2];
+                g_video_options.skin_structure = values[3];
+                g_video_options.auto_mask = values[3] < 0.0f ? 0u : 1u;
+                g_force_next_frame = true;
+            }
+            uint32_t ack[6] = { 0x4b414e54u, valid ? 1u : 0u, 0u, 0u, 0u, 0u };
+            if (valid) memcpy(ack + 2, values, sizeof(values));
+            if (!WriteExact(stdout, ack, sizeof(ack))) return 10;
+            continue;
+        }
+        if (msg == 3)`);
+code = patchNeuralHdr(code);
+code = code.replaceAll('g_present_swap->Present(0, 0)', 'g_present_swap->Present(CpPresentInterval(), 0)')
+  .replaceAll('g_present_swap->Present(0,0)', 'g_present_swap->Present(CpPresentInterval(),0)');
+replace('Log("[present] DXGI queue limited to one frame");', 'Log("[present] DXGI queue limited to one frame; vsync=%u", CpPresentInterval());');
+fs.copyFileSync(fileURLToPath(new URL('../native/NeuralCaptureColor.h', import.meta.url)), path.join(native, 'NeuralCaptureColor.h'));
+fs.copyFileSync(fileURLToPath(new URL('../native/NeuralHdrComposite.h', import.meta.url)), path.join(native, 'NeuralHdrComposite.h'));
 fs.writeFileSync(path.join(native, 'CapturePlayerNeural.cpp'), code);

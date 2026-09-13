@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import InfoHint from './InfoHint';
+import { HdrControls } from './RendererControls';
 
 // Base enhancement modes
 const baseEnhancementModes = [
@@ -321,7 +322,7 @@ export function ColorTab() {
           const setter = getEnhancedSetterByKey(key);
 
           return (
-            <div key={id} className="flex items-center gap-3">
+            <div key={id} className="settings-slider-row">
               <label className="w-20 shrink-0">{label}:</label>
               <input
                 type="range"
@@ -347,6 +348,7 @@ export function ColorTab() {
           );
         })}
       </div>
+      <HdrControls />
     </>
   );
 }
