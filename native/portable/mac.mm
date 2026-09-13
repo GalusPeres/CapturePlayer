@@ -101,7 +101,9 @@ public:
             session=[[AVCaptureSession alloc] init];
             AVCaptureDeviceInput* input=[AVCaptureDeviceInput deviceInputWithDevice:selected error:&failure];
             if(!input)throw std::runtime_error(failure.localizedDescription.UTF8String?:"Cannot open capture input.");
-            [session beginConfiguration];configuring=true;session.sessionPreset=AVCaptureSessionPresetInputPriority;
+            // InputPriority is iOS-only. On macOS configure the device format
+            // directly, without assigning a preset that would replace it.
+            [session beginConfiguration];configuring=true;
             if(![session canAddInput:input])throw std::runtime_error("Cannot add AVFoundation capture input.");
             [session addInput:input];
             if(![selected lockForConfiguration:&failure])throw std::runtime_error("Cannot configure AVFoundation capture device.");
@@ -114,7 +116,7 @@ public:
             output.alwaysDiscardsLateVideoFrames=YES;
             if(![session canAddOutput:output])throw std::runtime_error("Cannot add AVFoundation video output.");
             [session addOutput:output];
-            if(![output.availableVideoPixelFormatTypes containsObject:@(wanted)])
+            if(![output.availableVideoCVPixelFormatTypes containsObject:@(wanted)])
                 throw std::runtime_error("AVFoundation cannot export the selected NV12/P010 format.");
             output.videoSettings=@{(id)kCVPixelBufferPixelFormatTypeKey:@(wanted),
                 (id)kCVPixelBufferIOSurfacePropertiesKey:@{}};

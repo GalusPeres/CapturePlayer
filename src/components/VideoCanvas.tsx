@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import NativeVideo from './NativeVideo';
 import NativeDiagnosticsOverlay from './NativeDiagnosticsOverlay';
+import { getCompatibilityTrack } from '../hooks/nativeVideoStream';
 import { useSettings } from '../context/SettingsContext';
 import LowLatencyVideo, { isLowLatencySupported } from './LowLatencyVideo';
 import type { FrameStats } from './LowLatencyVideo';
@@ -48,7 +49,7 @@ const VideoCanvas: React.FC<Props> = ({
   // Prefer the low-latency WebGL path (MediaStreamTrackProcessor + desynchronized
   // canvas); fall back to the classic <video> element if it is unavailable or fails.
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
-  const nativeHdr = settings.nativeRenderer && settings.nativeHdr;
+  const nativeHdr = settings.nativeRenderer && settings.nativeHdr && !getCompatibilityTrack(stream);
   const useGlRenderer = !settings.nativeRenderer && (settings.lowLatencyRenderer || settings.spatialUpscaler) && !glFailed && hasVideoTrack && isLowLatencySupported();
 
   // Image Enhancement Modes - CSS image-rendering hint, applied by the browser compositor
@@ -472,7 +473,7 @@ const VideoCanvas: React.FC<Props> = ({
         style={{ opacity: dimmed ? 0 : 1, transition: dimmed ? 'none' : 'opacity 70ms ease-out' }}
       >
         {settings.nativeRenderer && stream ? (
-          <NativeVideo hdr={settings.nativeHdr} zoom={zoomLevel} filters={glFilters} onResolution={setResolution} />
+          <NativeVideo hdr={nativeHdr} stream={stream} zoom={zoomLevel} filters={glFilters} onResolution={setResolution} />
         ) : useGlRenderer && stream ? (
           <LowLatencyVideo
             stream={stream}
@@ -494,7 +495,7 @@ const VideoCanvas: React.FC<Props> = ({
         )}
 
         {isDev && settings.showDiagnosticsOverlay && running && settings.nativeRenderer && stream && (
-          <NativeDiagnosticsOverlay hdr={settings.nativeHdr} />
+          <NativeDiagnosticsOverlay hdr={nativeHdr} compatibility={!!getCompatibilityTrack(stream)} />
         )}
 
         {isDev && settings.showDiagnosticsOverlay && running && !settings.nativeRenderer && !useGlRenderer && debugInfo && (

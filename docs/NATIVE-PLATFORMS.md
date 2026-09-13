@@ -6,9 +6,9 @@ NativeVideo presenter, color/zoom/aspect controls and FSR passes.
 
 | Platform | Native capture and transport | Verification in this workspace |
 | --- | --- | --- |
-| Windows x64 | Existing Media Foundation / D3D11 helper, FP16 shared NT handles | Existing RTX 4080 / Elgato live measurements and HDR shader tests |
+| Windows x64 | Media Foundation NV12/P010 / D3D11 helper, FP16 shared NT handles | RTX 4080 / Elgato live measurements; HDR and NV12 color tests; OBS compatibility capture at 1440p, SDR, no audio |
 | Linux x64 | New V4L2 streaming backend; exported linear NV12/P010 DMA-BUF planes | Compiled in isolated Alpine Linux; N-API buffer ownership tests passed. No real capture/GPU import/display test |
-| macOS Apple Silicon | New AVFoundation backend; retained CVPixelBuffer / IOSurface; NV12 or P010 | TypeScript integration and simulated menu tests passed. Apple SDK compilation and M1 hardware validation remain pending |
+| macOS Apple Silicon | New AVFoundation backend; retained CVPixelBuffer / IOSurface; NV12 or P010 | TypeScript integration and simulated menu tests passed. Apple SDK compilation and ownership tests are required by the release workflow; M1 capture/display validation remains pending |
 
 The OS backends are in `native/portable/`. `electron/nativeCaptureFactory.ts`
 selects the matching implementation. The portable addon uses stable N-API 8,
@@ -44,7 +44,14 @@ tags. It does not convert an SDR buffer to ten bits and call it HDR. Linux curre
 accepts linear, contiguous, single-planar V4L2 NV12 or P010; HDR explicitly means
 limited-range BT.2020/PQ, as in the Windows HDR10 input mode. Multi-planar V4L2,
 MJPEG/YUYV conversion, drivers without DMA-BUF export, and tiled capture buffers
-are not implemented in this backend. Unsupported input fails with a reason.
+are not implemented in the direct backend. Unsupported SDR capture falls back
+to Chromium capture and feeds VideoFrames to the same GPU presenter, using a
+single-frame TrackProcessor queue. No frame pixel arrays are copied through JS.
+HDR failures remain explicit; SDR fallback is not presented as HDR. OBS Virtual
+Camera always uses compatibility SDR capture. Diagnostics identify the transport.
+
+Changing only the audio selection keeps the video track and capture device open.
+No audio device means no microphone request or audio processing graph.
 
 The shared HDR presenter requests an extended-range FP16 WebGPU canvas. Actual
 HDR presentation still requires a compatible OS compositor, GPU driver and display.
@@ -77,6 +84,9 @@ node scripts/test-portable-native.mjs # Linux/macOS, no capture hardware needed
 npx tsc --noEmit
 npm run build
 node scripts/test-platform-settings.mjs # hidden Electron window
+node scripts/test-capture-compatibility.mjs # hidden, simulated devices
+node scripts/test-capture-compatibility.mjs --obs # optional live OBS, no hardware card opened
+node scripts/test-native-nv12.mjs # Windows hidden GPU color test
 ```
 
 The native ownership test builds a mock producer against the actual N-API bridge.

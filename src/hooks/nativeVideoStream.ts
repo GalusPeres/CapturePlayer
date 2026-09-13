@@ -1,5 +1,13 @@
 type Receiver = (frame: VideoFrame) => void;
 let receiver: Receiver | undefined;
+const compatibilityTracks = new WeakSet<MediaStreamTrack>();
+export function markCompatibilityStream(stream: MediaStream) {
+  stream.getVideoTracks().forEach(track => compatibilityTracks.add(track));
+  return stream;
+}
+export function getCompatibilityTrack(stream: MediaStream | null) {
+  return stream?.getVideoTracks().find(track => compatibilityTracks.has(track));
+}
 // Installed before capture starts; frames without a presenter are closed.
 window.addEventListener('message', event => {
   if (event.source !== window) return;

@@ -1,6 +1,7 @@
 // src/hooks/useCaptureStream.ts - Custom hook for managing capture card media streams
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createNativeVideoStream } from './nativeVideoStream';
+import { openNativeVideo } from './openNativeVideo';
 import { useSettings } from '../context/SettingsContext';
 
 type DeviceOverrides = {
@@ -126,6 +127,36 @@ export function useCaptureStream() {
     }, 50);
   }, [stream, cleanup]);
 
+  // Audio selection is independent of video capture. In particular, choosing
+  // no audio must not release/reopen a card that another app may also use.
+  const changeAudio = useCallback(async (audioDevice: string) => {
+    if (!stream || startingRef.current) return;
+    startingRef.current = true;
+    let incoming: MediaStream | undefined;
+    try {
+      if (audioDevice !== '') incoming = await navigator.mediaDevices.getUserMedia({ video: false, audio: {
+        deviceId: { exact: audioDevice }, sampleRate: 48000, channelCount: 2,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+      } });
+      cleanup();
+      for (const track of stream.getAudioTracks()) { stream.removeTrack(track); track.stop(); }
+      for (const track of incoming?.getAudioTracks() ?? []) stream.addTrack(track);
+      if (stream.getAudioTracks().length) {
+        const context = new AudioContext({ latencyHint: 0.005, sampleRate: 48000 });
+        audioCtxRef.current = context;
+        const source = context.createMediaStreamSource(stream), gain = context.createGain();
+        sourceRef.current = source; gainRef.current = gain;
+        gain.gain.value = settings.volume / 100;
+        source.connect(gain); gain.connect(context.destination);
+        await context.resume();
+      }
+      setStream(new MediaStream(stream.getTracks()));
+    } catch (error) {
+      incoming?.getTracks().forEach(track => { stream.removeTrack(track); track.stop(); });
+      throw error;
+    } finally { startingRef.current = false; }
+  }, [stream, cleanup, settings.volume]);
+
   const start = useCallback(
     async (overrides: DeviceOverrides = {}) => {
       // Simple guard against multiple simultaneous starts
@@ -180,11 +211,9 @@ export function useCaptureStream() {
           const selected = devices.find(d => d.kind === 'videoinput' && d.deviceId === videoDev);
           if (!selected?.label) throw new Error('Select a named capture device before starting native capture.');
           const size = parseCaptureResolution(settings.captureResolution) ?? { width: 2560, height: 1440 };
-          if (!window.electronAPI.startNativeCapture) throw new Error('Native capture API is unavailable.');
-          nativeRef.current = createNativeVideoStream();
-          pendingVideoMedia = nativeRef.current.stream;
-          await window.electronAPI.startNativeCapture({ device: selected.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, ''),
+          nativeRef.current = await openNativeVideo(selected, videoConstraints, {
             ...size, fps: parseCaptureFrameRate(settings.captureFrameRate) ?? 60, hdr: settings.nativeHdr });
+          pendingVideoMedia = nativeRef.current.stream;
         } else if (videoConstraints) {
           pendingVideoMedia = await navigator.mediaDevices.getUserMedia({
             video: videoConstraints,
@@ -348,5 +377,5 @@ export function useCaptureStream() {
     };
   }, [cleanup]);
 
-  return { stream, start, stop };
+  return { stream, start, stop, changeAudio };
 }

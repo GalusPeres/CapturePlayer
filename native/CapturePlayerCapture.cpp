@@ -100,15 +100,16 @@ int main(int argc,char** argv) {
       }return 0;
     }
     check(CoInitializeEx(nullptr,COINIT_MULTITHREADED),"COM"); check(MFStartup(MF_VERSION),"MFStartup");
-    bool probe=false,hdr=false,synthetic=false; DWORD pid=0; UINT wantedW=2560,wantedH=1440,wantedFps=60; std::string wanted="Elgato 4K X";
+    bool probe=false,hdr=false,synthetic=false,testNv12=false; DWORD pid=0; UINT wantedW=2560,wantedH=1440,wantedFps=60; std::string wanted="Elgato 4K X";
     for(int i=1;i<argc;i++) {
       std::string arg=argv[i]; if(arg=="--probe")probe=true; else if(arg=="--color-test")synthetic=true;
+      else if(arg=="--nv12-test"){synthetic=true;testNv12=true;}
       else if(i+1<argc) { std::string v=argv[++i]; if(arg=="--pid")pid=std::stoul(v); else if(arg=="--device")wanted=v;else if(arg=="--hdr")hdr=v=="1";
         else if(arg=="--width")wantedW=std::stoul(v); else if(arg=="--height")wantedH=std::stoul(v); else if(arg=="--fps")wantedFps=std::stoul(v); }
     }
     ComPtr<IMFMediaSource> source; ComPtr<IMFSourceReader> reader;
-    UINT32 w=256,h=64,n=60,d=1; LONG stride=w*2;
-    UINT transfer=0,primaries=0,range=0; std::string selectedName="Synthetic HDR test";
+    UINT32 w=256,h=64,n=60,d=1; LONG stride=w*(testNv12?1:2); bool nv12=testNv12;
+    UINT transfer=0,primaries=0,range=0,matrix=0; std::string selectedName="Synthetic HDR test";
     if(!synthetic) {
     ComPtr<IMFAttributes> attributes; check(MFCreateAttributes(&attributes,2),"attributes");
     check(attributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID),"device type");
@@ -132,24 +133,26 @@ int main(int argc,char** argv) {
       if(h==MF_E_NO_MORE_TYPES)break; check(h,"native type");
       GUID subtype={};type->GetGUID(MF_MT_SUBTYPE,&subtype); UINT32 w=0,ht=0,n=0,d=1;
       MFGetAttributeSize(type.Get(),MF_MT_FRAME_SIZE,&w,&ht); MFGetAttributeRatio(type.Get(),MF_MT_FRAME_RATE,&n,&d);
-      if(subtype==MFVideoFormat_P010) {
-        if(probe)std::cout << "{\"format\":\"P010\",\"width\":"<<w<<",\"height\":"<<ht<<",\"fps\":"<<double(n)/d<<",\"transfer\":"<<attr(type.Get(),MF_MT_TRANSFER_FUNCTION)<<",\"primaries\":"<<attr(type.Get(),MF_MT_VIDEO_PRIMARIES)<<"}"<<std::endl;
-        if(w==wantedW && ht==wantedH && std::abs(double(n)/d-wantedFps)<1 && !chosen)chosen=type;
+      if(subtype==MFVideoFormat_P010 || (!hdr && subtype==MFVideoFormat_NV12)) {
+        if(probe&&d)std::cout << "{\"format\":"<<json(subtype==MFVideoFormat_NV12?"NV12":"P010")<<",\"width\":"<<w<<",\"height\":"<<ht<<",\"fps\":"<<double(n)/d<<",\"transfer\":"<<attr(type.Get(),MF_MT_TRANSFER_FUNCTION)<<",\"primaries\":"<<attr(type.Get(),MF_MT_VIDEO_PRIMARIES)<<"}"<<std::endl;
+        if(w==wantedW && ht==wantedH && d && std::abs(double(n)/d-wantedFps)<1 && (!chosen || subtype==MFVideoFormat_NV12))chosen=type;
       }
     }
     if(probe){source->Shutdown();return 0;}
-    if(!chosen)throw std::runtime_error("Requested P010 mode unavailable. Try 2560x1440 at 60 FPS with USB 10 Gbps.");
+    if(!chosen)throw std::runtime_error(hdr?"Requested P010 HDR capture mode unavailable on this device.":"Requested native NV12/P010 capture mode unavailable on this device.");
     check(reader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS,FALSE),"deselect streams");
     check(reader->SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM,TRUE),"select video stream");
     ComPtr<IMFSourceReaderEx> extended;
     if(SUCCEEDED(reader.As(&extended))) { DWORD flags=0;check(extended->SetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM,chosen.Get(),&flags),"native P010 type"); }
     check(reader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM,nullptr,chosen.Get()),"select P010");
     ComPtr<IMFMediaType> actual; check(reader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM,&actual),"actual type");
-    GUID subtype={};actual->GetGUID(MF_MT_SUBTYPE,&subtype);if(subtype!=MFVideoFormat_P010)throw std::runtime_error("Capture did not retain P010");
+    GUID subtype={};actual->GetGUID(MF_MT_SUBTYPE,&subtype);nv12=subtype==MFVideoFormat_NV12;
+    if(subtype!=MFVideoFormat_P010 && (!nv12 || hdr))throw std::runtime_error("Capture did not retain the requested pixel format");
     MFGetAttributeSize(actual.Get(),MF_MT_FRAME_SIZE,&w,&h);MFGetAttributeRatio(actual.Get(),MF_MT_FRAME_RATE,&n,&d);
-    stride=static_cast<LONG>(attr(actual.Get(),MF_MT_DEFAULT_STRIDE));if(!stride)stride=w*2;
-    if(stride<LONG(w*2))throw std::runtime_error("Unsupported P010 stride");
+    stride=static_cast<LONG>(attr(actual.Get(),MF_MT_DEFAULT_STRIDE));if(!stride)stride=w*(nv12?1:2);
+    if(stride<LONG(w*(nv12?1:2)))throw std::runtime_error("Unsupported capture stride");
     transfer=attr(actual.Get(),MF_MT_TRANSFER_FUNCTION), primaries=attr(actual.Get(),MF_MT_VIDEO_PRIMARIES),range=attr(actual.Get(),MF_MT_VIDEO_NOMINAL_RANGE);
+    matrix=attr(actual.Get(),MF_MT_YUV_MATRIX);
     }
     std::cout << "{\"ready\":true,\"device\":"<<json(selectedName)<<",\"width\":"<<w<<",\"height\":"<<h<<",\"fps\":"<<double(n)/d<<",\"transfer\":"<<transfer<<",\"primaries\":"<<primaries<<",\"range\":"<<range<<"}"<<std::endl;
     HANDLE parent=OpenProcess(PROCESS_DUP_HANDLE|SYNCHRONIZE,FALSE,pid);if(!parent)throw std::runtime_error("Cannot open Electron process");
@@ -162,12 +165,25 @@ int main(int argc,char** argv) {
       struct V { float4 pos:SV_POSITION; };
       V vs(uint id:SV_VertexID){V o;o.pos=float4(id==2?3:-1,id==1?3:-1,0,1);return o;}
       float4 ps(V i):SV_TARGET {
-        int2 p=int2(i.pos.xy);float y=(Y.Load(int3(p,0))*65535.0/64.0-64.0)/876.0;
+        int2 p=int2(i.pos.xy);
+        #ifdef NV12
+        float y=(Y.Load(int3(p,0))*255.0-16.0)/219.0;
+        float2 uv=(UV.Load(int3(p/2,0))*255.0-128.0)/224.0;
+        #else
+        float y=(Y.Load(int3(p,0))*65535.0/64.0-64.0)/876.0;
         float2 uv=(UV.Load(int3(p/2,0))*65535.0/64.0-512.0)/896.0;
+        #endif
+        #ifdef FULL_RANGE
+        y=Y.Load(int3(p,0));uv=UV.Load(int3(p/2,0))-float2(128.0/255.0,128.0/255.0);
+        #endif
         #ifdef HDR
         float3 rgb=float3(y+1.4746*uv.y,y-0.164553*uv.x-0.571353*uv.y,y+1.8814*uv.x);
         #else
+        #ifdef BT601
+        float3 rgb=float3(y+1.402*uv.y,y-0.344136*uv.x-0.714136*uv.y,y+1.772*uv.x);
+        #else
         float3 rgb=float3(y+1.5748*uv.y,y-0.187324*uv.x-0.468124*uv.y,y+1.8556*uv.x);
+        #endif
         #endif
         #ifdef HDR
         float3 pqp=pow(max(rgb,0),1.0/78.84375);
@@ -176,13 +192,15 @@ int main(int argc,char** argv) {
         #endif
         return float4(rgb,1);
       })";
-    ComPtr<ID3DBlob> vsCode,psCode,error; D3D_SHADER_MACRO macros[]={{hdr?"HDR":"SDR","1"},{nullptr,nullptr}};
+    const bool fullRange=nv12&&range==MFNominalRange_0_255;
+    const bool bt601=!hdr&&matrix==MFVideoTransferMatrix_BT601;
+    ComPtr<ID3DBlob> vsCode,psCode,error; D3D_SHADER_MACRO macros[]={{hdr?"HDR":"SDR","1"},{nv12?"NV12":"P010","1"},{fullRange?"FULL_RANGE":"LIMITED_RANGE","1"},{bt601?"BT601":"BT709","1"},{nullptr,nullptr}};
     check(D3DCompile(shader,strlen(shader),nullptr,macros,nullptr,"vs","vs_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&vsCode,&error),"vertex shader");
     check(D3DCompile(shader,strlen(shader),nullptr,macros,nullptr,"ps","ps_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&psCode,&error),"color shader");
     ComPtr<ID3D11VertexShader> vs;ComPtr<ID3D11PixelShader> ps;
     check(gpu->CreateVertexShader(vsCode->GetBufferPointer(),vsCode->GetBufferSize(),nullptr,&vs),"vertex program");
     check(gpu->CreatePixelShader(psCode->GetBufferPointer(),psCode->GetBufferSize(),nullptr,&ps),"color program");
-    D3D11_TEXTURE2D_DESC inputDesc={};inputDesc.Width=w;inputDesc.Height=h;inputDesc.MipLevels=1;inputDesc.ArraySize=1;inputDesc.Format=DXGI_FORMAT_P010;
+    D3D11_TEXTURE2D_DESC inputDesc={};inputDesc.Width=w;inputDesc.Height=h;inputDesc.MipLevels=1;inputDesc.ArraySize=1;inputDesc.Format=nv12?DXGI_FORMAT_NV12:DXGI_FORMAT_P010;
     inputDesc.SampleDesc.Count=1;inputDesc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
     inputDesc.Usage=D3D11_USAGE_DYNAMIC;inputDesc.CPUAccessFlags=D3D11_CPU_ACCESS_WRITE;
     ComPtr<ID3D11Texture2D> inputTexture;bool dynamicUpload=true;
@@ -194,12 +212,12 @@ int main(int argc,char** argv) {
       if(!dynamicUpload){context->UpdateSubresource(inputTexture.Get(),0,nullptr,data,sourcePitch,0);return;}
       D3D11_MAPPED_SUBRESOURCE mapped={};check(context->Map(inputTexture.Get(),0,D3D11_MAP_WRITE_DISCARD,0,&mapped),"map P010 upload");
       if(mapped.RowPitch==sourcePitch)memcpy(mapped.pData,data,size_t(sourcePitch)*h*3/2);
-      else for(UINT row=0;row<h*3/2;row++)memcpy(static_cast<BYTE*>(mapped.pData)+size_t(row)*mapped.RowPitch,static_cast<const BYTE*>(data)+size_t(row)*sourcePitch,w*2);
+      else for(UINT row=0;row<h*3/2;row++)memcpy(static_cast<BYTE*>(mapped.pData)+size_t(row)*mapped.RowPitch,static_cast<const BYTE*>(data)+size_t(row)*sourcePitch,w*(nv12?1:2));
       context->Unmap(inputTexture.Get(),0);
     };
     D3D11_SHADER_RESOURCE_VIEW_DESC view={};view.ViewDimension=D3D11_SRV_DIMENSION_TEXTURE2D;view.Texture2D.MipLevels=1;
-    ComPtr<ID3D11ShaderResourceView> yView,uvView;view.Format=DXGI_FORMAT_R16_UNORM;check(gpu->CreateShaderResourceView(inputTexture.Get(),&view,&yView),"Y plane");
-    view.Format=DXGI_FORMAT_R16G16_UNORM;check(gpu->CreateShaderResourceView(inputTexture.Get(),&view,&uvView),"UV plane");
+    ComPtr<ID3D11ShaderResourceView> yView,uvView;view.Format=nv12?DXGI_FORMAT_R8_UNORM:DXGI_FORMAT_R16_UNORM;check(gpu->CreateShaderResourceView(inputTexture.Get(),&view,&yView),"Y plane");
+    view.Format=nv12?DXGI_FORMAT_R8G8_UNORM:DXGI_FORMAT_R16G16_UNORM;check(gpu->CreateShaderResourceView(inputTexture.Get(),&view,&uvView),"UV plane");
     ID3D11ShaderResourceView* views[]={yView.Get(),uvView.Get()};context->PSSetShaderResources(0,2,views);
     context->VSSetShader(vs.Get(),nullptr,0);context->PSSetShader(ps.Get(),nullptr,0);context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     D3D11_VIEWPORT viewport={0,0,float(w),float(h),0,1};context->RSSetViewports(1,&viewport);
@@ -228,7 +246,19 @@ int main(int argc,char** argv) {
     // Explicit test mode never opens the capture device or shows a window.
     // Known PQ / BT.2020 patches go through the same P010 upload and shader.
     std::vector<unsigned short> testPixels;
-    if(synthetic) {
+    std::vector<BYTE> testPixels8;
+    if(testNv12) {
+      testPixels8.resize(w*h*3/2);
+      const double patches[8][3]={{0,0,0},{1,1,1},{1,0,0},{0,1,0},{0,0,1},{0,1,1},{1,0,1},{1,1,0}};
+      for(UINT y=0;y<h;y++)for(UINT x=0;x<w;x++) {
+        const auto& c=patches[x*8/w];const double l=.2126*c[0]+.7152*c[1]+.0722*c[2];
+        testPixels8[y*w+x]=BYTE(std::round(16+219*l));
+        if(!(y%2)&&!(x%2)) {
+          testPixels8[w*h+y/2*w+x]=BYTE(std::round(128+224*(c[2]-l)/1.8556));
+          testPixels8[w*h+y/2*w+x+1]=BYTE(std::round(128+224*(c[0]-l)/1.5748));
+        }
+      }
+    } else if(synthetic) {
       testPixels.resize(w*h*3/2);
       const double patches[8][3]={{10,10,10},{80,80,80},{203,203,203},{1000,1000,1000},{4000,4000,4000},{203,0,0},{0,203,0},{0,0,203}};
       const auto pq=[](double nits){double v=std::pow(nits/10000.0,0.1593017578125);return std::pow((0.8359375+18.8515625*v)/(1+18.6875*v),78.84375);};
@@ -262,7 +292,7 @@ int main(int argc,char** argv) {
       intervals.add(std::chrono::duration<double,std::milli>(captured-previous).count());previous=captured;
       int id=-1;for(int i=0;i<3;i++){bool expected=true;if(slots[i].free.compare_exchange_strong(expected,false)){id=i;break;}}
       if(id<0){++dropped;continue;}auto& slot=slots[id];
-      if(synthetic) { upload(testPixels.data(),stride); Sleep(16); } else {
+      if(synthetic) { upload(testNv12?static_cast<const void*>(testPixels8.data()):static_cast<const void*>(testPixels.data()),stride); Sleep(16); } else {
       ComPtr<IMFMediaBuffer> buffer;DWORD bufferCount=0;check(sample->GetBufferCount(&bufferCount),"P010 buffer count");
       if(bufferCount==1)check(sample->GetBufferByIndex(0,&buffer),"P010 buffer");
       else check(sample->ConvertToContiguousBuffer(&buffer),"P010 contiguous buffer");
@@ -273,7 +303,7 @@ int main(int argc,char** argv) {
       if(SUCCEEDED(buffer.As(&planar))&&SUCCEEDED(planar->Lock2DSize(MF2DBuffer_LockFlags_Read,&bytes,&pitch,&allocation,&length))) {
         bufferAccess="read-only-2d";
         const auto offset=reinterpret_cast<uintptr_t>(bytes)-reinterpret_cast<uintptr_t>(allocation);
-        if(pitch<LONG(w*2)||offset>length||size_t(pitch)*h*3/2>length-offset) {
+        if(pitch<LONG(w*(nv12?1:2))||offset>length||size_t(pitch)*h*3/2>length-offset) {
           planar->Unlock2D();throw std::runtime_error("Invalid P010 plane bounds");
         }
         try{upload(bytes,pitch);}catch(...){planar->Unlock2D();throw;}planar->Unlock2D();

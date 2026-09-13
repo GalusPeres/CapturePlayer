@@ -45,7 +45,7 @@ declare global {
 }
 
 export default function App() {
-  const { stream, start, stop } = useCaptureStream();
+  const { stream, start, stop, changeAudio } = useCaptureStream();
   const settings = useSettings();
 
   const [running, setRunning] = useState(false);
@@ -97,6 +97,7 @@ export default function App() {
   const [activeAudioDevice, setActiveAudioDevice] = useState(settings.audioDevice);
   const [activeCaptureResolution, setActiveCaptureResolution] = useState(settings.captureResolution);
   const [activeCaptureFrameRate, setActiveCaptureFrameRate] = useState(settings.captureFrameRate);
+  const activeNativeMode = useRef(`${settings.nativeRenderer}:${settings.nativeHdr}`);
 
   useEffect(() => {
     hideCursorRef.current = hideCursor;
@@ -317,6 +318,7 @@ export default function App() {
         setActiveAudioDevice(currentAudioDevice);
         setActiveCaptureResolution(settings.captureResolution);
         setActiveCaptureFrameRate(settings.captureFrameRate);
+        activeNativeMode.current = `${settings.nativeRenderer}:${settings.nativeHdr}`;
         setRunning(true);
         console.log('✅ Capture started successfully');
       }
@@ -402,6 +404,17 @@ export default function App() {
       }
 
       setProcessingWithTimeout(true);
+      if (running && videoDev === activeVideoDevice && settings.captureResolution === activeCaptureResolution
+        && settings.captureFrameRate === activeCaptureFrameRate
+        && activeNativeMode.current === `${settings.nativeRenderer}:${settings.nativeHdr}`) {
+        try {
+          await changeAudio(audioDev);
+          settings.setAudioDevice(audioDev);
+          setActiveAudioDevice(audioDev);
+        } catch (error) { console.error('Audio device switch failed:', error); }
+        finally { setProcessingWithTimeout(false); }
+        return;
+      }
       captureRestartRef.current = true;
       neuralResumePendingRef.current = false;
       let restarted = false;
@@ -436,6 +449,7 @@ export default function App() {
         setActiveAudioDevice(audioDev);
         setActiveCaptureResolution(settings.captureResolution);
         setActiveCaptureFrameRate(settings.captureFrameRate);
+        activeNativeMode.current = `${settings.nativeRenderer}:${settings.nativeHdr}`;
         setRunning(true);
 
         console.log('✅ Device switch successful!');
@@ -458,7 +472,7 @@ export default function App() {
         setProcessingWithTimeout(false);
       }
     },
-    [isProcessing, running, settings, start, stop]
+    [isProcessing, running, settings, start, stop, changeAudio, activeVideoDevice, activeCaptureResolution, activeCaptureFrameRate]
   );
 
   const previousNativeMode = useRef(`${settings.nativeRenderer}:${settings.nativeHdr}`);

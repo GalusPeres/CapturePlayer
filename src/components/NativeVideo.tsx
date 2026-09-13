@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { subscribeNativeFrames } from '../hooks/nativeVideoStream';
+import { subscribeNativeFrames, getCompatibilityTrack } from '../hooks/nativeVideoStream';
 import { createGlVideoPipeline, getVideoColorMatrix, type GlFilterState } from './glVideoPipeline';
 import { createHdrFsr, hdrRcasSample } from './hdrFsr';
 import { createHdrFsrResolve } from './fsrResolve';
 import { getFsrSize } from './fsrSizing';
 
-export default function NativeVideo({ hdr, zoom, filters, onResolution }: {
+export default function NativeVideo({ hdr, stream = null, zoom, filters, onResolution }: {
+  stream?: MediaStream | null;
   hdr: boolean; zoom: number; filters: GlFilterState;
   onResolution?: (res: { w: number; h: number; fps?: number } | null) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const current = useRef({ zoom, filters, onResolution }); current.current = { zoom, filters, onResolution };
   const [error, setError] = useState('');
+  const compatibilityTrack = getCompatibilityTrack(stream);
   useEffect(() => {
     const canvas = ref.current!; let stopped = false, unsubscribe = () => {}, dispose = () => {};
     // Layout changes are events, not per-frame work. Reading clientWidth after
@@ -144,7 +146,7 @@ export default function NativeVideo({ hdr, zoom, filters, onResolution }: {
       }
       if (stopped) { dispose(); return; }
       let count = 0, totalFrames = 0, start = performance.now(), signature = '';
-      unsubscribe = subscribeNativeFrames(frame => {
+      const present = (frame: VideoFrame) => {
         if (stopped) return;
         try {
           const dpr = window.devicePixelRatio || 1;
@@ -153,6 +155,7 @@ export default function NativeVideo({ hdr, zoom, filters, onResolution }: {
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
           draw(frame); ++count;
           canvas.dataset.nativeFrames = String(++totalFrames);
+          window.dispatchEvent(new Event('captureplayer:frame-delivered'));
           setData('sourceWidth',String(frame.displayWidth)); setData('sourceHeight',String(frame.displayHeight));
           setData('frameFormat',frame.format || 'unknown'); setData('transfer',frame.colorSpace.transfer || 'unknown');
           const next = `${frame.displayWidth}:${frame.displayHeight}`; const now = performance.now();
@@ -161,11 +164,31 @@ export default function NativeVideo({ hdr, zoom, filters, onResolution }: {
             signature = next; count = 0; start = now;
           }
         } catch (e) { setError(String(e)); unsubscribe(); }
-      });
+      };
+      if (compatibilityTrack) {
+        setData('captureTransport', 'compatibility');
+        const processor = new MediaStreamTrackProcessor({ track: compatibilityTrack, maxBufferSize: 1 });
+        const reader = processor.readable.getReader();
+        let cancelled = false;
+        unsubscribe = () => { cancelled = true; void reader.cancel().catch(() => {}); };
+        void (async () => {
+          try {
+            while (!stopped && !cancelled) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              try { if (!stopped && !cancelled) present(value); } finally { value.close(); }
+            }
+          } catch (e) { if (!stopped && !cancelled) setError(String(e)); }
+          finally { reader.releaseLock(); }
+        })();
+      } else {
+        setData('captureTransport', 'shared-texture');
+        unsubscribe = subscribeNativeFrames(present);
+      }
     };
     void initialize().catch(e => { if (!stopped) { setError(String(e)); dispose(); } });
     return () => { stopped = true; resize.disconnect(); unsubscribe(); dispose(); };
-  }, [hdr]);
+  }, [hdr, compatibilityTrack]);
   return <><canvas key={String(hdr)} ref={ref} data-native-renderer={hdr ? 'hdr' : 'sdr'} className="w-full h-full" />
     {error && <div role="alert" className="absolute inset-0 flex items-center justify-center bg-black text-red-300 p-8">{error}</div>}</>;
 }

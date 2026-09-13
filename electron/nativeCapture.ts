@@ -6,6 +6,7 @@ export type NativeCaptureOptions = { device: string; width: number; height: numb
 export class NativeCapture {
   private child?: ChildProcessWithoutNullStreams;
   private generation = 0;
+  private stopping: Promise<void> = Promise.resolve();
   status: { phase: string; message: string; fps?: number; dropped?: number; hdr?: boolean; width?: number; height?: number } = { phase: 'off', message: 'Off' };
   constructor(private executable: string) {}
   available() { return process.platform === 'win32' && fs.existsSync(this.executable); }
@@ -13,16 +14,20 @@ export class NativeCapture {
     ++this.generation;
     const child = this.child; this.child = undefined;
     if (child) {
+      this.stopping = new Promise<void>(resolve => child.once('close', () => resolve()));
       child.stdin.end('quit\n');
       const timer = setTimeout(() => { if (child.exitCode === null) child.kill(); }, 400);
       timer.unref(); child.once('exit', () => clearTimeout(timer));
     }
     if (this.status.phase !== 'error') this.status = { phase: 'off', message: 'Off' };
+    return this.stopping;
   }
   async start(options: NativeCaptureOptions, target: WebContents) {
-    this.stop(); const generation = this.generation;
+    const stopped = this.stop(); const generation = this.generation;
+    await stopped;
+    if (generation !== this.generation) throw new Error('Native start cancelled');
     if (!this.available()) throw new Error('Native capture is not installed. Run npm run native:build.');
-    this.status = { phase: 'starting', message: 'Opening native P010 capture…', hdr: options.hdr };
+    this.status = { phase: 'starting', message: 'Opening native capture…', hdr: options.hdr };
     const child = spawn(this.executable, ['--pid', String(process.pid), '--device', options.device,
       '--width', String(options.width), '--height', String(options.height), '--fps', String(options.fps), '--hdr', options.hdr ? '1' : '0'],
     { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -66,7 +71,7 @@ export class NativeCapture {
             width = packet.width; height = packet.height;
             if (!Number.isInteger(width) || !Number.isInteger(height) || width < 64 || height < 64 || width > 4096 || height > 2160) { fail('Invalid native dimensions'); return; }
             this.status = { phase: 'starting', width, height, hdr: options.hdr,
-              message: options.hdr ? 'P010 · HDR10 input selected manually' : 'P010 · SDR input' };
+              message: options.hdr ? 'P010 · HDR10 input selected manually' : 'Native · SDR input' };
           }
           if (packet.stats) Object.assign(this.status, { fps: packet.fps, dropped: packet.dropped, timing: packet.timing });
           if (Number.isInteger(packet.frame) && packet.frame >= 0 && packet.frame < 3 && width && height) {
