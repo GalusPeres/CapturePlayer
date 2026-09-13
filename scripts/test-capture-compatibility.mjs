@@ -24,10 +24,21 @@ const realEnumerate=navigator.mediaDevices.enumerateDevices.bind(navigator.media
 const root=createRoot(document.getElementById('root'));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const expect=(condition,message)=>{if(!condition)throw Error(message)};
+const waitForFrames=async(minimum,timeout=10000)=>{
+ const deadline=performance.now()+timeout;
+ while(performance.now()<deadline){
+  const error=document.querySelector('[role=alert]')?.textContent;
+  if(error)throw Error('Compatibility renderer: '+error);
+  if(Number(document.querySelector('canvas')?.dataset.nativeFrames)>minimum)return;
+  await wait(100);
+ }
+ throw Error('Compatibility frames did not reach NativeVideo: '+JSON.stringify(document.querySelector('canvas')?.dataset));
+};
 window.electronAPI={platform:'win32',stopNativeCapture:async()=>{++stops},
  startNativeCapture:async()=>{++starts;if(nativeFails)throw Error('Requested native NV12/P010 capture mode unavailable on this device.') }};
 let sourceCanvas=document.createElement('canvas');sourceCanvas.width=640;sourceCanvas.height=360;
-const ctx=sourceCanvas.getContext('2d');let timer=setInterval(()=>{ctx.fillStyle='#228844';ctx.fillRect(0,0,640,360)},16);
+const ctx=sourceCanvas.getContext('2d');let frameIndex=0;
+let timer=setInterval(()=>{ctx.fillStyle='#228844';ctx.fillRect(0,0,640,360);ctx.fillStyle='#ffffff';ctx.fillRect(++frameIndex%600,100,40,40)},16);
 let audioContexts=0;
 // No actual audio output in this test; only verify audio graph lifetime.
 window.AudioContext=class {state='running';destination={};constructor(){++audioContexts}
@@ -59,7 +70,7 @@ window.check=async()=>{
  expect(capture.stream===originalStream,'Audio change replaced the MediaStream and restarted the browser renderer');
  expect(starts===initialStarts&&stops===initialStops,'Audio change reopened native capture');
  capture.stop();await wait(100);
- nativeFails=true;await capture.start();await wait(1200);
+ nativeFails=true;await capture.start();await waitForFrames(5);
  expect(!!getCompatibilityTrack(capture.stream),'Unsupported native format did not select compatibility capture');
  expect(Number(document.querySelector('canvas')?.dataset.nativeFrames)>5,'Compatibility frames did not reach NativeVideo');
  expect(document.querySelector('canvas').dataset.captureTransport==='compatibility','Wrong renderer transport');
@@ -83,7 +94,7 @@ window.check=async()=>{
    const devices=await realEnumerate();const obs=devices.find(d=>d.kind==='videoinput'&&/obs.*virtual|obs-camera/i.test(d.label));
    if(!obs)throw Error('Live OBS Virtual Camera not found: '+devices.filter(d=>d.kind==='videoinput').map(d=>d.label).join(', '));
    settings.setCaptureResolution('auto');await wait(50);
-   await capture.start({videoDevice:obs.deviceId,audioDevice:''});await wait(3000);
+   await capture.start({videoDevice:obs.deviceId,audioDevice:''});await waitForFrames(20);
    const canvas=document.querySelector('canvas');
    expect(Number(canvas?.dataset.nativeFrames)>20,'Live OBS did not deliver enough frames: '+document.querySelector('[role=alert]')?.textContent);
    expect(canvas.dataset.nativeRenderer==='sdr','Live OBS test must use HDR off');
@@ -103,7 +114,8 @@ setTimeout(()=>{console.error('Capture compatibility test timed out');app.exit(1
 app.whenReady().then(async()=>{
  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(true));
  session.defaultSession.setPermissionCheckHandler(()=>true);
- const win=new BrowserWindow({show:false,width:1280,height:720,webPreferences:{backgroundThrottling:false}});
+ const win=new BrowserWindow({show:false,width:1280,height:720,webPreferences:{backgroundThrottling:false,offscreen:true}});
+ win.webContents.setFrameRate(60);
  win.webContents.on('console-message',event=>{if(event.message.startsWith('LIVE_OBS='))console.log(event.message)});
  await win.loadFile(path.join(__dirname,'index.html'));
  console.log(await win.webContents.executeJavaScript('window.check()'));app.exit(0);
