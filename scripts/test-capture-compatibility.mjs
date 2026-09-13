@@ -59,7 +59,7 @@ window.check=async()=>{
  expect(capture.stream===originalStream,'Audio change replaced the MediaStream and restarted the browser renderer');
  expect(starts===initialStarts&&stops===initialStops,'Audio change reopened native capture');
  capture.stop();await wait(100);
- nativeFails=true;await capture.start();await wait(600);
+ nativeFails=true;await capture.start();await wait(1200);
  expect(!!getCompatibilityTrack(capture.stream),'Unsupported native format did not select compatibility capture');
  expect(Number(document.querySelector('canvas')?.dataset.nativeFrames)>5,'Compatibility frames did not reach NativeVideo');
  expect(document.querySelector('canvas').dataset.captureTransport==='compatibility','Wrong renderer transport');

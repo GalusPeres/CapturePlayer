@@ -34,6 +34,8 @@ export class NeuralWorker {
   private tuningVersion = 0;
   private selectedQuality: NeuralQuality = 'auto';
   private lastLog = '';
+  private gpuMeasuredAt = -Infinity;
+  private cadenceMeasuredAt = -Infinity;
   private status: NeuralStatus;
 
   constructor(private runtimeDir: string, private runtimeFile: () => string | undefined = () => path.join(runtimeDir, 'nvngx_dlssnr.dll')) {
@@ -46,7 +48,17 @@ export class NeuralWorker {
   private helpersAvailable() {
     return process.platform === 'win32' && ['CapturePlayerNeural.exe', 'nvngx.dll_ns-forwarder.dll'].every(f => fs.existsSync(path.join(this.runtimeDir, f)));
   }
-  getStatus(): NeuralStatus { return { ...this.status, available: this.available(), helpersAvailable: this.helpersAvailable(), runtimeInstalled: !!this.runtimeFile(), selectedQuality: this.selectedQuality, strength: this.strength, split: this.split, tuning: { ...this.tuning } }; }
+  getStatus(): NeuralStatus {
+    const now = performance.now();
+    return { ...this.status, available: this.available(), helpersAvailable: this.helpersAvailable(), runtimeInstalled: !!this.runtimeFile(),
+      selectedQuality: this.selectedQuality, strength: this.strength, split: this.split, tuning: { ...this.tuning },
+      // A stopped/static source must not display old GPU/cadence data as current.
+      gpuMs: now - this.gpuMeasuredAt <= 6000 ? this.status.gpuMs : undefined,
+      presentGapP95Ms: now - this.cadenceMeasuredAt <= 6000 ? this.status.presentGapP95Ms : undefined,
+      presentGapMaxMs: now - this.cadenceMeasuredAt <= 6000 ? this.status.presentGapMaxMs : undefined,
+      presentGapsOver25Ms: now - this.cadenceMeasuredAt <= 6000 ? this.status.presentGapsOver25Ms : undefined,
+    };
+  }
   setTuning(value: NeuralTuning) {
     const next = normalizeNeuralTuning(value);
     if (JSON.stringify(next) !== JSON.stringify(this.tuning)) { this.tuning = next; ++this.tuningVersion; }
@@ -147,9 +159,10 @@ export class NeuralWorker {
         if (captureWhite) this.status.captureWhiteScale = Number(captureWhite[1]);
         if (line.includes('direct feature 18 confirmed')) this.confirmed = true;
         const gpu = /eval on GPU ([\d.]+)/.exec(line);
-        if (gpu) this.status.gpuMs = Number(gpu[1]);
+        if (gpu) { this.status.gpuMs = Number(gpu[1]); this.gpuMeasuredAt = performance.now(); }
         const cadence = /\[cadence\] present gaps p95=([\d.]+) max=([\d.]+) over25=(\d+)/.exec(line);
         if (cadence) {
+          this.cadenceMeasuredAt = performance.now();
           this.status.presentGapP95Ms = Number(cadence[1]);
           this.status.presentGapMaxMs = Number(cadence[2]);
           this.status.presentGapsOver25Ms = Number(cadence[3]);
@@ -243,8 +256,8 @@ export class NeuralWorker {
           const sorted = [...times].sort((a, b) => a - b);
           const mean = times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0;
           this.status.fps = count * 1000 / (now - windowStart);
-          this.status.processingMs = mean;
-          this.status.p95Ms = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0;
+          this.status.processingMs = times.length ? mean : undefined;
+          this.status.p95Ms = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
           if (now - started > 4000 && times.length > 20) slowWindows = mean > 17.5 ? slowWindows + 1 : 0;
           if (slowWindows >= 3) {
             if (options.quality === 'auto' && reduction < 2) {

@@ -1,5 +1,7 @@
 CapturePlayer **0.5.0-beta.2** is an experimental test release, not a stable update.
 
+This replacement build aligns dropdown titles and scrollbar spacing, retains Neural settings across restarts, and adds Neural stage/GPU timing and presentation gaps to diagnostics. Diagnostics update together every two seconds without re-rendering the video tree; earlier frame gaps remain included. GPU utilization and controller-to-screen latency are explicitly shown as unmeasured.
+
 - Windows x64: Setup installer and portable executable, with the native Media Foundation capture renderer.
 - macOS Apple Silicon (M1 and newer): DMG with the new AVFoundation/IOSurface native backend.
 - Linux x64: AppImage with the new V4L2/DMA-BUF native backend.

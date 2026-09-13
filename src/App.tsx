@@ -25,6 +25,7 @@ declare global {
       resumeNeuralAfterCapture?: () => Promise<void>;
       setNeuralSplit?: (split: boolean) => Promise<void>;
       setNeuralStrength?: (strength: number) => Promise<void>;
+      setNeuralQuality?: (quality: NeuralQuality) => Promise<void>;
       setNeuralTuning?: (tuning: NeuralTuning) => Promise<NeuralTuning>;
       isAlwaysOnTop: () => Promise<boolean>;
       setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
@@ -51,9 +52,12 @@ export default function App() {
 
   const [running, setRunning] = useState(false);
   const captureRestartRef = useRef(false);
-  const neuralResumePendingRef = useRef(false);
+  const neuralResumePendingRef = useRef(true);
   useEffect(() => {
-    if (!running && !captureRestartRef.current) void window.electronAPI.stopNeural?.();
+    if (!running && !captureRestartRef.current) {
+      neuralResumePendingRef.current = true;
+      void window.electronAPI.pauseNeuralForCapture?.();
+    }
   }, [running, stream]);
   const [showSettings, setShowSettings] = useState(false);
   const [hideCursor, setHideCursor] = useState(false);
@@ -469,7 +473,7 @@ export default function App() {
         }
       } finally {
         captureRestartRef.current = false;
-        if (!restarted || !neuralResumePendingRef.current) void window.electronAPI.stopNeural?.();
+        if (!restarted || !neuralResumePendingRef.current) void window.electronAPI.pauseNeuralForCapture?.();
         setProcessingWithTimeout(false);
       }
     },

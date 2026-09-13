@@ -14,19 +14,21 @@ export default function RendererControls() {
   }, []);
   const value = settings.nativeRenderer ? 'native' : settings.lowLatencyRenderer || settings.spatialUpscaler ? 'webgl' : 'standard';
   const modes = rendererModes(window.electronAPI?.platform);
-  return <div className="flex items-center gap-3">
+  return <div>
+    <div className="mb-1">
     <InfoHint info={<span className="flex flex-col gap-2">{modes.map(mode =>
       <span key={mode.value}><span className="block text-white">{mode.label}</span>{mode.help}</span>
     )}</span>}>
-      <span className="cursor-help shrink-0 whitespace-nowrap">Video mode:</span>
+      <span className="cursor-help">Video mode:</span>
     </InfoHint>
-    <div className="flex-1 min-w-0"><SimpleSelect ariaLabel="Video playback mode" value={value}
+    </div>
+    <SimpleSelect ariaLabel="Video playback mode" value={value}
       options={modes.filter(mode => mode.value !== 'native' || available || settings.nativeRenderer)}
       onChange={next => {
         settings.setNativeRenderer(next === 'native');
         settings.setLowLatencyRenderer(next === 'webgl');
         if (next === 'standard') settings.setSpatialUpscaler(false);
-      }} /></div>
+      }} />
   </div>;
 }
 

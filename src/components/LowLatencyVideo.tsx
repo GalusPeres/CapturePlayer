@@ -7,6 +7,7 @@ import { createGlVideoPipeline } from './glVideoPipeline';
 import type { GlFilterState, GlVideoPipeline } from './glVideoPipeline';
 
 export type FrameStats = {
+  sampleDurationMs?: number;
   width: number;
   height: number;
   trackFps?: number;
@@ -182,6 +183,7 @@ const LowLatencyVideo: React.FC<Props> = ({
       const stalled = idleMs > Math.max(50, expectedFrameMs() * 2.5);
 
       const stats: FrameStats = {
+        sampleDurationMs: elapsed,
         width,
         height,
         trackFps: trackFps(),

@@ -4,6 +4,7 @@ import { createGlVideoPipeline, getVideoColorMatrix, type GlFilterState } from '
 import { createHdrFsr, hdrRcasSample } from './hdrFsr';
 import { createHdrFsrResolve } from './fsrResolve';
 import { getFsrSize } from './fsrSizing';
+import { reportFrameDelivery } from './frameDeliveryDiagnostics';
 
 export default function NativeVideo({ hdr, stream = null, zoom, filters, onResolution }: {
   stream?: MediaStream | null;
@@ -154,12 +155,13 @@ export default function NativeVideo({ hdr, stream = null, zoom, filters, onResol
           const height = Math.max(1, Math.min(2160, Math.round(cssHeight * dpr)));
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
           draw(frame); ++count;
-          canvas.dataset.nativeFrames = String(++totalFrames);
-          window.dispatchEvent(new CustomEvent('captureplayer:frame-delivered', { detail: { timestamp: frame.timestamp } }));
+          ++totalFrames;
+          reportFrameDelivery(frame.timestamp);
           setData('sourceWidth',String(frame.displayWidth)); setData('sourceHeight',String(frame.displayHeight));
           setData('frameFormat',frame.format || 'unknown'); setData('transfer',frame.colorSpace.transfer || 'unknown');
           const next = `${frame.displayWidth}:${frame.displayHeight}`; const now = performance.now();
           if (signature !== next || now - start >= 1000) {
+            canvas.dataset.nativeFrames = String(totalFrames);
             current.current.onResolution?.({ w: frame.displayWidth, h: frame.displayHeight, fps: now - start >= 1000 ? Math.round(count * 10000 / (now - start)) / 10 : undefined });
             signature = next; count = 0; start = now;
           }

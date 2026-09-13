@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import NativeVideo from './NativeVideo';
 import NativeDiagnosticsOverlay from './NativeDiagnosticsOverlay';
 import DiagnosticsOverlay from './DiagnosticsOverlay';
+import { mergeFrameStats } from './frameDeliveryDiagnostics';
 import { getCompatibilityTrack } from '../hooks/nativeVideoStream';
 import { useSettings } from '../context/SettingsContext';
 import LowLatencyVideo, { isLowLatencySupported } from './LowLatencyVideo';
@@ -42,7 +43,13 @@ const VideoCanvas: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const settings = useSettings();
-  const [debugInfo, setDebugInfo] = useState<FrameStats | null>(null);
+  // Publishing diagnostics must not render the video/filter tree again.
+  const debugInfo = useRef<FrameStats | null>(null);
+  const setDebugInfo = useCallback((value: FrameStats | null) => { debugInfo.current = mergeFrameStats(debugInfo.current, value); }, []);
+  const readDiagnostics = useCallback(() => {
+    const stats = debugInfo.current; debugInfo.current = null;
+    return { stats };
+  }, []);
   const [glFailed, setGlFailed] = useState(false);
   const [videoWarmup, setVideoWarmup] = useState(false);
   const isDev = import.meta.env.DEV;
@@ -52,6 +59,7 @@ const VideoCanvas: React.FC<Props> = ({
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
   const nativeHdr = settings.nativeRenderer && settings.nativeHdr && !getCompatibilityTrack(stream);
   const useGlRenderer = !settings.nativeRenderer && (settings.lowLatencyRenderer || settings.spatialUpscaler) && !glFailed && hasVideoTrack && isLowLatencySupported();
+  useEffect(() => { debugInfo.current = null; }, [stream, useGlRenderer, settings.showDiagnosticsOverlay]);
 
   // Image Enhancement Modes - CSS image-rendering hint, applied by the browser compositor
   const getEnhancementConfig = (mode: string) => {
@@ -250,6 +258,7 @@ const VideoCanvas: React.FC<Props> = ({
       const stalled = idleMs > Math.max(50, expectedFrameMs * 2.5);
 
       const nextStats: FrameStats = {
+        sampleDurationMs: elapsed,
         width: video.videoWidth || trackSettings?.width || 0,
         height: video.videoHeight || trackSettings?.height || 0,
         trackFps,
@@ -496,7 +505,7 @@ const VideoCanvas: React.FC<Props> = ({
         )}
 
         {settings.showDiagnosticsOverlay && running && !settings.nativeRenderer && (
-          <DiagnosticsOverlay key={useGlRenderer ? 'webgl' : 'standard'} mode={useGlRenderer ? 'webgl' : 'standard'} stats={debugInfo} />
+          <DiagnosticsOverlay key={useGlRenderer ? 'webgl' : 'standard'} mode={useGlRenderer ? 'webgl' : 'standard'} readSample={readDiagnostics} />
         )}
 
         {/* Info overlay when not running or no video device while live - but not during processing or initializing */}

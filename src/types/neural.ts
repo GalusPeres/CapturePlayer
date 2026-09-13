@@ -1,4 +1,11 @@
 export type NeuralQuality = 'auto' | '720p' | '900p' | '1080p' | '1440p';
+export type NeuralPreferences = { enabled: boolean; quality: NeuralQuality; strength: number; split: boolean };
+export function normalizeNeuralPreferences(value: unknown): NeuralPreferences {
+  const input = value && typeof value === 'object' ? value as Partial<NeuralPreferences> : {};
+  return { enabled: input.enabled === true, split: input.split === true,
+    quality: ['auto', '720p', '900p', '1080p', '1440p'].includes(String(input.quality)) ? input.quality! : 'auto',
+    strength: typeof input.strength === 'number' && Number.isFinite(input.strength) ? Math.round(Math.min(100, Math.max(0, input.strength))) : 100 };
+}
 export type NeuralTuning = { intensity: number; tone: number; structure: number; skin: number };
 // -1 asks the runtime for its default skin treatment, preserving the old image.
 export const DEFAULT_NEURAL_TUNING: NeuralTuning = { intensity: 100, tone: 100, structure: 100, skin: -1 };
@@ -14,6 +21,7 @@ export function normalizeNeuralTuning(value: unknown): NeuralTuning {
   return result;
 }
 export type NeuralStatus = {
+  enabled?: boolean;
   phase: 'off' | 'starting' | 'active' | 'error';
   available: boolean;
   helpersAvailable?: boolean;

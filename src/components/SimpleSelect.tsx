@@ -37,23 +37,6 @@ export function SimpleSelect({
 
   return (
     <div ref={ref} className="relative w-full">
-      {/* Inject custom scrollbar styles */}
-      <style>
-        {`
-          .custom-scroll::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-          }
-          .custom-scroll::-webkit-scrollbar-track {
-            background: #27272a;
-          }
-          .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: #52525b;
-            border-radius: 3px;
-          }
-        `}
-      </style>
-
       {/* Trigger Button */}
       <button
         type="button"
@@ -75,7 +58,7 @@ export function SimpleSelect({
           className={`
             absolute z-10 ${direction === 'up' ? 'bottom-full mb-1' : 'mt-1'} w-full bg-zinc-900 border border-zinc-700
             rounded max-h-48 overflow-auto text-sm leading-tight
-            custom-scroll
+            scrollbar-thin
           `}
         >
           {options.map((o) => (

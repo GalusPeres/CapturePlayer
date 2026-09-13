@@ -58,7 +58,7 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
     const timer = window.setInterval(refresh, 1000);
     return () => { mounted = false; clearInterval(timer); };
   }, []);
-  const enabled = status.phase === 'active' || status.phase === 'starting';
+  const enabled = status.enabled ?? (status.phase === 'active' || status.phase === 'starting');
   const importRuntime = async () => {
     setBusy(true); setImportError('');
     try {
@@ -84,6 +84,7 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
     ++editVersion.current;
     const next = value as NeuralQuality;
     setQuality(next);
+    if (!enabled) await window.electronAPI.setNeuralQuality?.(next);
     if (enabled) {
       setBusy(true);
       try {
@@ -108,6 +109,7 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
       await window.electronAPI.setNeuralTuning?.({ ...DEFAULT_NEURAL_TUNING });
       await window.electronAPI.setNeuralStrength?.(100);
       await window.electronAPI.setNeuralSplit?.(false);
+      await window.electronAPI.setNeuralQuality?.('auto');
       if (enabled) { const next = await window.electronAPI.startNeural?.('auto', false, 100); if (next) setStatus(next); }
     } catch { setTuningError('Could not reset neural settings.'); }
     finally { setBusy(false); }
@@ -136,9 +138,9 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
       </div>}
     </div>
     <fieldset disabled={busy || !status.available} className="space-y-3 disabled:opacity-40 min-w-0">
-      <div className="flex items-center gap-3">
-        <InfoHint info="Internal AI processing resolution. Lower settings reduce GPU work. Auto targets 60 FPS. The output keeps the physical window resolution."><span className="cursor-help shrink-0">AI resolution:</span></InfoHint>
-        <div className="flex-1 min-w-0"><SimpleSelect ariaLabel="AI processing resolution" options={qualityOptions} value={quality} disabled={busy || !status.available} onChange={value => void changeQuality(value)} /></div>
+      <div>
+        <div className="mb-1"><InfoHint info="Internal AI processing resolution. Lower settings reduce GPU work. Auto targets 60 FPS. The output keeps the physical window resolution."><span className="cursor-help">AI resolution:</span></InfoHint></div>
+        <SimpleSelect ariaLabel="AI processing resolution" options={qualityOptions} value={quality} disabled={busy || !status.available} onChange={value => void changeQuality(value)} />
       </div>
       <div className="settings-slider-row">
         <InfoHint info="Mix the finished neural result with the original. Lowering this does not normally reduce model cost. 0% skips inference; turn Neural off to remove the extra capture/presentation stage."><label htmlFor="neural-strength" className="w-20 block cursor-help">Strength:</label></InfoHint>

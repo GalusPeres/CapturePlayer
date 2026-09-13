@@ -18,6 +18,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
@@ -71,6 +75,10 @@ jobs:
       - name: Test production settings
         if: runner.os == 'Windows'
         run: node scripts/test-platform-settings.mjs
+
+      - name: Test Neural preferences across restarts
+        if: runner.os == 'Windows'
+        run: node scripts/test-neural-preferences.mjs
 
       - name: Build renderer and electron bundles
         run: npm run build

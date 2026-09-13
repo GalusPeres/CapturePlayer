@@ -25,8 +25,10 @@
 @layer utilities {
   /* Scrollbar width */
   .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    /* Use the shared Chromium styling below. Non-auto standard properties
+       override ::-webkit-scrollbar and restore platform-dependent widths. */
+    scrollbar-width: auto;
+    scrollbar-color: auto;
   }
   /* Firefox: Colors */
   .scrollbar-track {
@@ -54,6 +56,14 @@
 }
 
 /* Define scrollbar color variables globally */
+.settings-scroll.scrollbar-thin {
+  /* Reserve the same 8 px with or without overflow, inside the existing
+     24 px right margin. Controls keep their original full width. */
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  padding-right: calc(1.5rem - 8px);
+}
+
 :root {
   --scrollbar-track: rgba(255,255,255,0.05);
   --scrollbar-thumb: rgba(255,255,255,0.2);

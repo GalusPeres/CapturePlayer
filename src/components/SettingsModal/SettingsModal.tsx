@@ -484,7 +484,7 @@ export default function SettingsModal({
         {/* Tab Content - Expanded */}
         <div
           ref={contentRef}
-          className="relative px-6 pt-5 pb-6 flex-1 overflow-auto text-white space-y-3 scrollbar-thin bg-zinc-900"
+          className="settings-scroll relative px-6 pt-5 pb-6 flex-1 overflow-auto text-white space-y-3 scrollbar-thin bg-zinc-900"
           onScroll={(event) => {
             if (!restoringScrollRef.current) {
               saveScrollPosition(tab, event.currentTarget);

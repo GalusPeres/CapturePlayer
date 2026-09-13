@@ -6,7 +6,7 @@ import { createNativeCapture } from './nativeCaptureFactory';
 import { NeuralWorker } from './neuralWorker';
 import { NeuralRuntimeStore } from './neuralRuntime';
 import type { NeuralQuality } from '../src/types/neural';
-import { normalizeNeuralTuning } from '../src/types/neural';
+import { normalizeNeuralTuning, normalizeNeuralPreferences } from '../src/types/neural';
 
 let mainWin: BrowserWindow | null = null;
 let neural: NeuralWorker | undefined;
@@ -31,10 +31,23 @@ ipcMain.handle('native-capture-start', async (event, options) => {
   pauseNeuralForCapture();
   await nativeCapture.start(options, event.sender);
 });
-let neuralIntent = false;
-let neuralCapturePaused = false;
+const neuralPreferencesPath = path.join(app.getPath('userData'), 'neural-preferences.json');
+let neuralPreferences = normalizeNeuralPreferences(undefined);
+try { neuralPreferences = normalizeNeuralPreferences(JSON.parse(fs.readFileSync(neuralPreferencesPath, 'utf8'))); } catch { /* Use defaults on first launch. */ }
+let neuralIntent = neuralPreferences.enabled;
+let neuralCapturePaused = true;
 let neuralRestart: NodeJS.Timeout | undefined;
-const neuralPreferences = { quality: 'auto' as NeuralQuality, split: false, strength: 100 };
+let preferencesSaveTimer: NodeJS.Timeout | undefined;
+function saveNeuralPreferences() {
+  clearTimeout(preferencesSaveTimer); preferencesSaveTimer = undefined;
+  try {
+    fs.mkdirSync(path.dirname(neuralPreferencesPath), { recursive: true });
+    fs.writeFileSync(neuralPreferencesPath, JSON.stringify(neuralPreferences));
+  } catch (error) { console.error('Could not save neural preferences', error); }
+}
+function schedulePreferencesSave() {
+  clearTimeout(preferencesSaveTimer); preferencesSaveTimer = setTimeout(saveNeuralPreferences, 400);
+}
 const neuralTuningPath = path.join(app.getPath('userData'), 'neural-tuning.json');
 let neuralTuning = normalizeNeuralTuning(undefined);
 try { neuralTuning = normalizeNeuralTuning(JSON.parse(fs.readFileSync(neuralTuningPath, 'utf8'))); } catch { /* First launch or invalid file: use defaults. */ }
@@ -46,10 +59,12 @@ function saveNeuralTuning() {
     fs.writeFileSync(neuralTuningPath, JSON.stringify(neuralTuning));
   } catch (error) { console.error('Could not save neural tuning', error); }
 }
-app.on('before-quit', () => { if (tuningSaveTimer) saveNeuralTuning(); });
+app.on('before-quit', () => { if (tuningSaveTimer) saveNeuralTuning(); if (preferencesSaveTimer) saveNeuralPreferences(); });
 const getNeural = () => {
   neural ??= new NeuralWorker(neuralHelperDirectory, () => neuralRuntime.file);
   neural.setTuning(neuralTuning);
+  neural.setStrength(neuralPreferences.strength);
+  neural.setSplit(neuralPreferences.split);
   return neural;
 };
 
@@ -62,7 +77,9 @@ ipcMain.handle('neural-tuning', (event, value: unknown) => {
   return neuralTuning;
 });
 
-ipcMain.handle('neural-status', () => getNeural().getStatus());
+const getNeuralStatus = () => ({ ...getNeural().getStatus(), enabled: neuralIntent,
+  selectedQuality: neuralPreferences.quality, strength: neuralPreferences.strength, split: neuralPreferences.split });
+ipcMain.handle('neural-status', getNeuralStatus);
 ipcMain.handle('neural-import-runtime', async event => {
   if (!mainWin || event.sender !== mainWin.webContents || process.platform !== 'win32') throw new Error('Unavailable');
   if (importingNeural || ['active', 'starting'].includes(getNeural().getStatus().phase))
@@ -80,16 +97,17 @@ ipcMain.handle('neural-import-runtime', async event => {
   } catch (error) { return { error: error instanceof Error ? error.message : 'Could not import the DLL.' }; }
   finally { importingNeural = false; }
 });
-function stopNeural(message = 'Off') {
-  neuralIntent = false;
-  neuralCapturePaused = false;
+function stopNeural(message = 'Off', remember = true) {
+  if (remember) { neuralPreferences.enabled = false; schedulePreferencesSave(); }
+  neuralIntent = neuralPreferences.enabled;
+  if (!remember) neuralCapturePaused = true;
   clearTimeout(neuralRestart);
   neural?.stop(message);
 }
 function pauseNeuralForCapture() {
-  if (!neuralIntent || !neural || !['active', 'starting'].includes(neural.getStatus().phase)) return;
   neuralCapturePaused = true;
   clearTimeout(neuralRestart);
+  if (!neuralIntent || !neural || !['active', 'starting'].includes(neural.getStatus().phase)) return;
   neural.pause('Waiting for capture to restart…');
 }
 ipcMain.handle('neural-capture-pause', (event) => {
@@ -114,14 +132,19 @@ function startNeural() {
     vsync: !app.commandLine.hasSwitch('disable-gpu-vsync'), ...neuralPreferences
   });
 }
-ipcMain.handle('neural-stop', () => { stopNeural(); return getNeural().getStatus(); });
+ipcMain.handle('neural-stop', () => { stopNeural(); return getNeuralStatus(); });
+ipcMain.handle('neural-quality', (event, quality: unknown) => {
+  if (event.sender !== mainWin?.webContents || !['auto', '720p', '900p', '1080p', '1440p'].includes(String(quality))) return;
+  neuralPreferences.quality = quality as NeuralQuality; schedulePreferencesSave();
+});
 ipcMain.handle('neural-split', (_event, split: unknown) => {
-  if (typeof split === 'boolean') { neuralPreferences.split = split; getNeural().setSplit(split); }
+  if (typeof split === 'boolean') { neuralPreferences.split = split; getNeural().setSplit(split); schedulePreferencesSave(); }
 });
 ipcMain.handle('neural-strength', (_event, strength: unknown) => {
   if (typeof strength === 'number' && Number.isFinite(strength)) {
     neuralPreferences.strength = Math.round(Math.min(100, Math.max(0, strength)));
     getNeural().setStrength(neuralPreferences.strength);
+    schedulePreferencesSave();
   }
 });
 ipcMain.handle('neural-start', (event, quality: unknown, split: unknown, strength: unknown = 100) => {
@@ -129,9 +152,10 @@ ipcMain.handle('neural-start', (event, quality: unknown, split: unknown, strengt
   if (!win || event.sender !== win.webContents || !['auto', '720p', '900p', '1080p', '1440p'].includes(String(quality)) || typeof split !== 'boolean' || typeof strength !== 'number' || !Number.isFinite(strength)) return getNeural().getStatus();
   Object.assign(neuralPreferences, { quality, split, strength: Math.round(Math.min(100, Math.max(0, strength))) });
   neuralIntent = true;
+  neuralPreferences.enabled = true; schedulePreferencesSave();
   clearTimeout(neuralRestart);
   startNeural();
-  return getNeural().getStatus();
+  return getNeuralStatus();
 });
 
 // Launch settings live in their own file because command-line switches must be
@@ -195,8 +219,8 @@ function createMainWindow() {
   });
   const displayChanged = () => adaptNeural();
   screen.on('display-metrics-changed', displayChanged);
-  win.webContents.on('did-start-loading', () => { stopNeural(); nativeCapture.stop(); });
-  win.webContents.on('render-process-gone', () => { stopNeural(); nativeCapture.stop(); });
+  win.webContents.on('did-start-loading', () => { stopNeural('Waiting for capture', false); nativeCapture.stop(); });
+  win.webContents.on('render-process-gone', () => { stopNeural('Waiting for capture', false); nativeCapture.stop(); });
 
   const URL = process.env.VITE_DEV_SERVER_URL
     ? process.env.VITE_DEV_SERVER_URL
@@ -216,7 +240,7 @@ function createMainWindow() {
   win.on('leave-full-screen', () => win.webContents.send('fullscreen-changed', false));
 
   win.on('closed', () => {
-    stopNeural(); nativeCapture.stop();
+    stopNeural('Off', false); nativeCapture.stop();
     screen.removeListener('display-metrics-changed', displayChanged);
     mainWin = null;
   });
@@ -227,7 +251,7 @@ app.whenReady().then(async () => {
   createMainWindow();
   globalShortcut.register('CommandOrControl+Alt+Backspace', () => stopNeural('Stopped with Ctrl+Alt+Backspace.'));
 });
-app.on('before-quit', () => { stopNeural(); nativeCapture.stop(); });
+app.on('before-quit', () => { stopNeural('Off', false); nativeCapture.stop(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('window-all-closed', () => {

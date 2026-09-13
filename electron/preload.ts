@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resumeNeuralAfterCapture: () => ipcRenderer.invoke('neural-capture-ready'),
   setNeuralSplit: (split: boolean) => ipcRenderer.invoke('neural-split', split),
   setNeuralStrength: (strength: number) => ipcRenderer.invoke('neural-strength', strength),
+  setNeuralQuality: (quality: string) => ipcRenderer.invoke('neural-quality', quality),
   setNeuralTuning: (tuning: unknown) => ipcRenderer.invoke('neural-tuning', tuning),
   isAlwaysOnTop: () => ipcRenderer.invoke('is-always-on-top'),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
