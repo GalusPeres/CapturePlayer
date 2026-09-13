@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createNativeVideoStream } from './nativeVideoStream';
 import { openNativeVideo } from './openNativeVideo';
+import { AudioPlayback, audioConstraints } from './audioPlayback';
 import { useSettings } from '../context/SettingsContext';
 
 type DeviceOverrides = {
@@ -57,50 +58,17 @@ export function useCaptureStream() {
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   const nativeRef = useRef<ReturnType<typeof createNativeVideoStream> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const gainRef = useRef<GainNode | null>(null);
-  const startingRef = useRef<boolean>(false);
-
-  // Improved cleanup function for audio resources
-  const cleanup = useCallback(() => {
-    // console.log('🧹 Cleaning up audio resources...');
-
-    // 1) First disconnect audio graph
-    try {
-      if (sourceRef.current) {
-        sourceRef.current.disconnect();
-        sourceRef.current = null;
-      }
-      if (gainRef.current) {
-        gainRef.current.disconnect();
-        gainRef.current = null;
-      }
-    } catch (e) {
-      console.warn('Error disconnecting audio nodes:', e);
-    }
-
-    // 2) Close AudioContext (with timeout for safety)
-    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      const ctx = audioCtxRef.current;
-      audioCtxRef.current = null;
-
-      // Wait briefly, then close
-      setTimeout(() => {
-        try {
-          ctx.close();
-        } catch (e) {
-          console.warn('Error closing AudioContext:', e);
-        }
-      }, 100);
-    }
-  }, []);
+  const audioRef = useRef<AudioPlayback | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const startingRef = useRef(false);
+  const cleanup = useCallback(() => { audioRef.current?.stop(); audioRef.current = null; }, []);
 
   const stop = useCallback(() => {
     console.log('🛑 Stopping capture stream...');
 
     // 1) Cache current stream reference
-    const currentStream = stream;
+    const currentStream = streamRef.current;
+    streamRef.current = null;
     nativeRef.current?.stop(); nativeRef.current = null;
     void window.electronAPI.stopNativeCapture?.();
 
@@ -125,37 +93,14 @@ export function useCaptureStream() {
         });
       }
     }, 50);
-  }, [stream, cleanup]);
+  }, [cleanup]);
 
   // Audio selection is independent of video capture. In particular, choosing
   // no audio must not release/reopen a card that another app may also use.
   const changeAudio = useCallback(async (audioDevice: string) => {
-    if (!stream || startingRef.current) return;
-    startingRef.current = true;
-    let incoming: MediaStream | undefined;
-    try {
-      if (audioDevice !== '') incoming = await navigator.mediaDevices.getUserMedia({ video: false, audio: {
-        deviceId: { exact: audioDevice }, sampleRate: 48000, channelCount: 2,
-        echoCancellation: false, noiseSuppression: false, autoGainControl: false,
-      } });
-      cleanup();
-      for (const track of stream.getAudioTracks()) { stream.removeTrack(track); track.stop(); }
-      for (const track of incoming?.getAudioTracks() ?? []) stream.addTrack(track);
-      if (stream.getAudioTracks().length) {
-        const context = new AudioContext({ latencyHint: 0.005, sampleRate: 48000 });
-        audioCtxRef.current = context;
-        const source = context.createMediaStreamSource(stream), gain = context.createGain();
-        sourceRef.current = source; gainRef.current = gain;
-        gain.gain.value = settings.volume / 100;
-        source.connect(gain); gain.connect(context.destination);
-        await context.resume();
-      }
-      setStream(new MediaStream(stream.getTracks()));
-    } catch (error) {
-      incoming?.getTracks().forEach(track => { stream.removeTrack(track); track.stop(); });
-      throw error;
-    } finally { startingRef.current = false; }
-  }, [stream, cleanup, settings.volume]);
+    if (!streamRef.current || startingRef.current) return;
+    await audioRef.current?.changeDevice(audioDevice);
+  }, []);
 
   const start = useCallback(
     async (overrides: DeviceOverrides = {}) => {
@@ -193,18 +138,7 @@ export function useCaptureStream() {
           settings.captureFrameRate
         );
 
-        const audioConstraints =
-          audioDev === ''
-            ? false
-            : {
-                ...(audioDev ? { deviceId: { exact: audioDev } } : {}),
-                sampleRate: 48000,
-                channelCount: 2,
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-                latency: 0
-              };
+        const requestedAudio = audioDev === '' ? false : audioConstraints(audioDev);
 
         if (videoConstraints && settings.nativeRenderer) {
           const devices = await navigator.mediaDevices.enumerateDevices();
@@ -221,11 +155,13 @@ export function useCaptureStream() {
           });
         }
 
-        if (audioConstraints) {
-          pendingAudioMedia = await navigator.mediaDevices.getUserMedia({
-            video: false,
-            audio: audioConstraints
-          });
+        if (requestedAudio) {
+          try {
+            pendingAudioMedia = await navigator.mediaDevices.getUserMedia({ video: false, audio: requestedAudio });
+          } catch (error) {
+            if (!pendingVideoMedia) throw error;
+            console.warn('Audio input unavailable; keeping video active:', error);
+          }
         }
 
         const media = new MediaStream([
@@ -261,45 +197,9 @@ export function useCaptureStream() {
           }
         }
 
-        // 2) Set stream state
+        streamRef.current = media;
         setStream(media);
-
-        // Video-only capture needs no audio graph or output-device thread.
-        if (!audioTrack) return media;
-
-        // 3) Set up AudioContext + GainNode (with error handling)
-        try {
-          const ac = new AudioContext({
-            latencyHint: 0.005,
-            sampleRate: 48000
-          });
-
-          console.log('🔊 Created AudioContext, state:', ac.state);
-
-          audioCtxRef.current = ac;
-          const src = ac.createMediaStreamSource(media);
-          sourceRef.current = src;
-
-          const gain = ac.createGain();
-          gain.gain.value = settings.volume / 100;
-          gainRef.current = gain;
-
-          // Connect audio graph
-          src.connect(gain);
-          gain.connect(ac.destination);
-
-          // Resume AudioContext if suspended
-          if (ac.state === 'suspended') {
-            console.log('🎵 Resuming suspended AudioContext...');
-            await ac.resume();
-          }
-
-          console.log('✅ Audio setup complete, final state:', ac.state);
-        } catch (audioError) {
-          console.error('❌ Audio setup failed:', audioError);
-          cleanup();
-          // Audio errors should not crash the entire stream
-        }
+        audioRef.current = new AudioPlayback(media, audioDev, settings.volume);
 
         return media;
       } catch (error) {
@@ -310,6 +210,7 @@ export function useCaptureStream() {
         pendingAudioMedia?.getTracks().forEach((track) => track.stop());
         // Cleanup on error
         cleanup();
+        streamRef.current = null;
         setStream(null);
         throw error;
       } finally {
@@ -329,44 +230,15 @@ export function useCaptureStream() {
     ]
   );
 
-  // Dynamically adjust volume (with error handling)
-  useEffect(() => {
-    if (gainRef.current) {
-      try {
-        gainRef.current.gain.value = settings.volume / 100;
-        console.log('🔊 Volume updated to:', settings.volume);
-      } catch (e) {
-        console.warn('Error updating volume:', e);
-      }
-    }
-  }, [settings.volume]);
-
-  useEffect(() => {
-    if (!import.meta.env.DEV || !stream || !settings.showDiagnosticsOverlay) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      const ac = audioCtxRef.current;
-      if (!ac) return;
-
-      window.electronAPI?.debugAudioStats?.({
-        state: ac.state,
-        sampleRate: ac.sampleRate,
-        currentTime: Number(ac.currentTime.toFixed(3)),
-        baseLatencyMs: Number((ac.baseLatency * 1000).toFixed(1)),
-        outputLatencyMs: typeof ac.outputLatency === 'number' ? Number((ac.outputLatency * 1000).toFixed(1)) : undefined
-      });
-    }, 2000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [settings.showDiagnosticsOverlay, stream]);
+  useEffect(() => { audioRef.current?.setVolume(settings.volume); }, [settings.volume]);
 
   // Cleanup on unmount with memory management
   useEffect(() => {
     return () => {
       // console.log('🧹 Component unmounting, cleaning up...');
       cleanup();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
       nativeRef.current?.stop();
       void window.electronAPI.stopNativeCapture?.();
 

@@ -16,6 +16,8 @@ export function normalizeNeuralTuning(value: unknown): NeuralTuning {
 export type NeuralStatus = {
   phase: 'off' | 'starting' | 'active' | 'error';
   available: boolean;
+  helpersAvailable?: boolean;
+  runtimeInstalled?: boolean;
   message: string;
   quality?: string;
   selectedQuality?: NeuralQuality;

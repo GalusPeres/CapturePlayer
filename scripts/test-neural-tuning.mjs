@@ -21,8 +21,12 @@ const child = spawn(path.join(runtime, 'CapturePlayerNeural.exe'), ['--video'], 
   env: { ...process.env, CAPTUREPLAYER_PARENT_PID: String(process.pid), NS_NR_SMALL: '0', NS_PW: '0', NS_SPOUT: '0', NS_ARCH_SPOOF: '1', CAPTUREPLAYER_NEURAL_HDR: '0' }
 });
 let data = Buffer.alloc(0), tail = '', index = 0;
+let importedRuntimeSeen = !process.env.NS_NR_DLL;
 child.stdout.on('data', b => { data = Buffer.concat([data, b]); });
-child.stderr.on('data', b => { tail = (tail + b.toString()).slice(-5000); });
+child.stderr.on('data', b => {
+  tail = (tail + b.toString()).slice(-5000);
+  if (process.env.NS_NR_DLL && tail.includes('NS_NR_DLL=' + process.env.NS_NR_DLL)) importedRuntimeSeen = true;
+});
 child.stdin.on('error', () => {});
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function read(size) {
@@ -76,6 +80,7 @@ try {
   }
   for (const values of [[NaN,1,1,-1], [1,Infinity,1,-1], [1,1,2,-1], [1,1,1,-2]]) await tune(values, false);
   assert.ok(original.equals(await frame()), 'Invalid commands must leave valid settings intact');
+  assert.ok(importedRuntimeSeen, 'Worker did not acknowledge the imported runtime path');
   fs.mkdirSync('.local/benchmarks', { recursive: true });
   fs.writeFileSync('.local/benchmarks/neural-tuning-pixels.json', JSON.stringify({ date: new Date().toISOString(), results }, null, 2));
   console.log('PASS: live tuning, exact reset, invalid input rejected; no window or capture card opened', results);

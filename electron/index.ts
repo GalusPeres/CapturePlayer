@@ -1,14 +1,20 @@
 // electron/index.ts - CapturePlayer main process
-import { app, BrowserWindow, ipcMain, shell, screen, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, screen, globalShortcut, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { createNativeCapture } from './nativeCaptureFactory';
 import { NeuralWorker } from './neuralWorker';
+import { NeuralRuntimeStore } from './neuralRuntime';
 import type { NeuralQuality } from '../src/types/neural';
 import { normalizeNeuralTuning } from '../src/types/neural';
 
 let mainWin: BrowserWindow | null = null;
 let neural: NeuralWorker | undefined;
+const neuralHelperDirectory = process.env.CAPTUREPLAYER_NEURAL_RUNTIME || (app.isPackaged
+  ? path.join(path.dirname(app.getPath('exe')), 'neural-runtime')
+  : path.join(app.getAppPath(), '.local', 'neural-runtime'));
+const neuralRuntime = new NeuralRuntimeStore(path.join(app.getPath('userData'), 'neural-runtime'));
+let importingNeural = false;
 const nativeCapture = createNativeCapture();
 ipcMain.handle('native-capture-status', () => ({ ...nativeCapture.status, available: nativeCapture.available() }));
 ipcMain.handle('native-capture-capabilities', (event, options) => {
@@ -42,9 +48,7 @@ function saveNeuralTuning() {
 }
 app.on('before-quit', () => { if (tuningSaveTimer) saveNeuralTuning(); });
 const getNeural = () => {
-  neural ??= new NeuralWorker(process.env.CAPTUREPLAYER_NEURAL_RUNTIME || (app.isPackaged
-    ? path.join(path.dirname(app.getPath('exe')), 'neural-runtime')
-    : path.join(app.getAppPath(), '.local', 'neural-runtime')));
+  neural ??= new NeuralWorker(neuralHelperDirectory, () => neuralRuntime.file);
   neural.setTuning(neuralTuning);
   return neural;
 };
@@ -59,6 +63,23 @@ ipcMain.handle('neural-tuning', (event, value: unknown) => {
 });
 
 ipcMain.handle('neural-status', () => getNeural().getStatus());
+ipcMain.handle('neural-import-runtime', async event => {
+  if (!mainWin || event.sender !== mainWin.webContents || process.platform !== 'win32') throw new Error('Unavailable');
+  if (importingNeural || ['active', 'starting'].includes(getNeural().getStatus().phase))
+    return { error: 'Turn Neural Rendering off before changing its DLL.' };
+  importingNeural = true;
+  try {
+    const selected = await dialog.showOpenDialog(mainWin, {
+      title: 'Select nvngx_dlssnr.dll', properties: ['openFile'],
+      filters: [{ name: 'NVIDIA Neural Rendering DLL', extensions: ['dll'] }],
+    });
+    if (selected.canceled || !selected.filePaths[0]) return { cancelled: true };
+    const result = await neuralRuntime.importFile(selected.filePaths[0]);
+    stopNeural('Runtime imported. Ready to enable Neural Rendering.');
+    return { ...result, status: getNeural().getStatus() };
+  } catch (error) { return { error: error instanceof Error ? error.message : 'Could not import the DLL.' }; }
+  finally { importingNeural = false; }
+});
 function stopNeural(message = 'Off') {
   neuralIntent = false;
   neuralCapturePaused = false;
@@ -82,7 +103,7 @@ ipcMain.handle('neural-capture-ready', (event) => {
 });
 function startNeural() {
   const win = mainWin;
-  if (!neuralIntent || neuralCapturePaused || !win || win.isDestroyed() || win.isMinimized()) return;
+  if (importingNeural || !neuralIntent || neuralCapturePaused || !win || win.isDestroyed() || win.isMinimized()) return;
   const bounds = win.getContentBounds();
   const display = screen.getDisplayMatching(bounds);
   const handle = win.getNativeWindowHandle();
@@ -201,7 +222,8 @@ function createMainWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (process.platform === 'win32') await neuralRuntime.initialize(path.join(neuralHelperDirectory, 'nvngx_dlssnr.dll'));
   createMainWindow();
   globalShortcut.register('CommandOrControl+Alt+Backspace', () => stopNeural('Stopped with Ctrl+Alt+Backspace.'));
 });

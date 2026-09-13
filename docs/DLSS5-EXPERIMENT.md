@@ -1,6 +1,6 @@
 # DLSS 5 neural preview experiment
 
-This branch adds an opt-in **Settings → View → DLSS 5 Neural Rendering**
+This branch adds an opt-in **Settings → Effects → DLSS 5 Neural Rendering**
 preview for Windows and RTX GPUs. It runs actual NGX feature 18, using a
 locally installed experimental community runtime. It is not an official
 NVIDIA integration.
@@ -11,6 +11,23 @@ the neural difference is applied on the GPU and displayed with FP16 HDR output.
 This is not native HDR inference. See [native renderer measurements and limits](NATIVE-RENDERER.md).
 
 ## Trying it
+
+The Windows manual-import package includes `CapturePlayerNeural.exe`, the
+forwarder, its source license and C++ dependencies, but excludes the NVIDIA
+model DLL. Use **Effects → DLSS 5 Neural Rendering → Select DLL** and select
+your separately obtained `nvngx_dlssnr.dll`. Currently only tested version
+310.8.0.0 is accepted (SHA-256
+`dcc0dc2414aedec4a8e084647070383be068554042587180c20c784d4772d36f`).
+Import verifies the copied PE/x64 DLL and exact checksum without executing it.
+The DLL is kept under the app's user data directory and revalidated at startup.
+Cancelling or failing an import leaves the previous installation intact.
+GPU initialization happens when Neural is enabled with a live capture signal.
+Selecting a DLL does not establish its licensing or grant redistribution rights.
+
+For a helpers-only build, run `scripts/setup-neural.ps1 -HelpersOnly`; this
+does not download the NVIDIA model archive. `node scripts/test-neural-import.mjs`
+uses the existing local test DLL to exercise validation, persistence and failure
+recovery. The legacy local package below remains available for development.
 
 Use the separate local **CapturePlayer Neural Test.exe** build, or run:
 
@@ -34,11 +51,11 @@ The setup needs Visual Studio C++ Build Tools and a Windows SDK. It compiles
 the pinned native helper, verifies the pinned runtime archive's SHA-256,
 and installs everything under `.local/neural-runtime`. Nothing is installed
 into the driver or another application. The normal release configuration
-does not bundle these experimental binaries.
+bundles the helpers but excludes the NVIDIA model DLL.
 
 1. Start the capture card with the desired source format, up to 4K/60.
 2. Choose window/fullscreen size. The preview adapts automatically after resizing.
-3. Open Settings → View, leave AI resolution at Auto, and turn DLSS 5 on.
+3. Open Settings → Effects, leave AI resolution at Auto, and turn DLSS 5 on.
 4. Close Settings to inspect the picture. The comparison checkbox leaves
    the original on the left and puts the neural result on the right.
 5. Turn it off with the same switch or **Ctrl+Alt+Backspace**.

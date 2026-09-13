@@ -155,7 +155,7 @@ export default function NativeVideo({ hdr, stream = null, zoom, filters, onResol
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
           draw(frame); ++count;
           canvas.dataset.nativeFrames = String(++totalFrames);
-          window.dispatchEvent(new Event('captureplayer:frame-delivered'));
+          window.dispatchEvent(new CustomEvent('captureplayer:frame-delivered', { detail: { timestamp: frame.timestamp } }));
           setData('sourceWidth',String(frame.displayWidth)); setData('sourceHeight',String(frame.displayHeight));
           setData('frameFormat',frame.format || 'unknown'); setData('transfer',frame.colorSpace.transfer || 'unknown');
           const next = `${frame.displayWidth}:${frame.displayHeight}`; const now = performance.now();

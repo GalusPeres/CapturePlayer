@@ -34,6 +34,7 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
   const [strength, setStrength] = useState(100);
   const [tuningError, setTuningError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [importError, setImportError] = useState('');
   const editVersion = useRef(0);
   useEffect(() => {
     let mounted = true;
@@ -58,6 +59,15 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
     return () => { mounted = false; clearInterval(timer); };
   }, []);
   const enabled = status.phase === 'active' || status.phase === 'starting';
+  const importRuntime = async () => {
+    setBusy(true); setImportError('');
+    try {
+      const result = await window.electronAPI.importNeuralRuntime?.();
+      if (result?.error) setImportError(result.error);
+      if (result?.status) setStatus(result.status);
+    } catch { setImportError('Could not import the Neural runtime DLL.'); }
+    finally { setBusy(false); }
+  };
   const toggleDisabled = busy || (!enabled && (!status.available || !hasSignal));
   const compareDisabled = busy || !status.available || status.phase !== 'active';
   const toggle = async () => {
@@ -115,6 +125,15 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
       </>}>
         <span onClick={() => { if (!toggleDisabled) void toggle(); }} className={'text-sm text-white/90 select-none ' + (toggleDisabled ? 'opacity-40 cursor-help' : 'cursor-pointer')}>DLSS 5 Neural Rendering</span>
       </InfoHint>
+      {window.electronAPI.importNeuralRuntime && <div className="ml-auto shrink-0">
+        <InfoHint info="Select your nvngx_dlssnr.dll (tested version 310.8.0.0). CapturePlayer checks the file and stores it for future launches and updates. The DLL is not included in this installer. Turn Neural off before changing it.">
+          <button type="button" disabled={busy || enabled || status.helpersAvailable === false}
+            onClick={() => void importRuntime()}
+            className="px-3 py-1.5 rounded-lg border border-zinc-600/60 bg-zinc-800 text-sm text-white/90 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+            {busy ? 'Please wait…' : status.runtimeInstalled ? 'Change DLL' : 'Select DLL'}
+          </button>
+        </InfoHint>
+      </div>}
     </div>
     <fieldset disabled={busy || !status.available} className="space-y-3 disabled:opacity-40 min-w-0">
       <div className="flex items-center gap-3">
@@ -132,6 +151,6 @@ export default function NeuralControls({ hasSignal }: { hasSignal: boolean }) {
         <InfoHint info="Available while Neural Rendering is active. Original on the left, neural result on the right. Both use the same captured frame."><span onClick={toggleSplit} className={'text-sm select-none ' + (compareDisabled ? 'opacity-40 cursor-help' : 'cursor-pointer')}>Compare side by side</span></InfoHint>
       </div>
     </fieldset>
-    {(tuningError || status.phase === 'error') && <div role="alert" className="text-xs text-amber-200/90">{tuningError || status.message}</div>}
+    {(importError || tuningError || status.phase === 'error') && <div role="alert" className="text-xs text-amber-200/90">{importError || tuningError || status.message}</div>}
   </form>;
 }

@@ -17,6 +17,7 @@ export class PortableNativeCapture {
   private loadError = '';
   private generation = 0;
   private cancelStart?: () => void;
+  private cancelDelivery?: () => void;
   private watchdog?: NodeJS.Timeout;
   status: { phase: string; message: string; fps?: number; dropped?: number; hdr?: boolean; width?: number; height?: number } = { phase: 'off', message: 'Off' };
   constructor(private modulePath: string) {}
@@ -33,6 +34,7 @@ export class PortableNativeCapture {
     ++this.generation;
     clearInterval(this.watchdog); this.watchdog = undefined;
     this.cancelStart?.(); this.cancelStart = undefined;
+    this.cancelDelivery?.(); this.cancelDelivery = undefined;
     this.addon?.stop();
     if (this.status.phase !== 'error') this.status = { phase: 'off', message: 'Off' };
   }
@@ -51,6 +53,8 @@ export class PortableNativeCapture {
     this.status = { phase: 'starting', message: process.platform === 'darwin' ? 'Opening AVFoundation capture…' : 'Opening V4L2 capture…', hdr: options.hdr };
     await new Promise<void>((resolve, reject) => {
       let active = false, stopped = false, frames = 0, lastStats = performance.now(), lastFrame = performance.now();
+      let sending = false, pending: NativeFrame | undefined, skipped = 0;
+      this.cancelDelivery = () => { if (pending) addon.release(pending.token); pending = undefined; };
       const fail = (error: unknown) => {
         if (stopped || generation !== this.generation) return;
         stopped = true; clearTimeout(timeout); clearInterval(this.watchdog); this.watchdog = undefined; this.cancelStart = undefined;
@@ -63,22 +67,17 @@ export class PortableNativeCapture {
       };
       const timeout = setTimeout(() => fail('Native capture did not produce importable frames.'), 10000);
       this.cancelStart = () => { stopped = true; clearTimeout(timeout); reject(new Error('Native start cancelled.')); };
-      try {
-        addon.start(options, packet => {
-          if (packet.error) { fail(packet.error); return; }
-          if (stopped || generation !== this.generation || target.isDestroyed()) { addon.release(packet.token); return; }
-          lastFrame = performance.now();
-          let transferred = false;
+      const deliver = async (packet: NativeFrame) => {
+          sending = true;
+          let imported: ReturnType<typeof sharedTexture.importSharedTexture> | undefined;
           try {
             if (!Number.isInteger(packet.width) || !Number.isInteger(packet.height) || packet.width !== options.width || packet.height !== options.height)
               throw new Error('The native capture format changed. Restart capture with the new resolution.');
-            const imported = sharedTexture.importSharedTexture({ textureInfo: {
+            imported = sharedTexture.importSharedTexture({ textureInfo: {
               codedSize: { width: packet.width, height: packet.height }, pixelFormat: packet.pixelFormat,
               colorSpace: packet.colorSpace, timestamp: packet.timestamp, handle: packet.handle
             }, allReferencesReleased: () => addon.release(packet.token) });
-            transferred = true;
-            void sharedTexture.sendSharedTexture({ frame: target.mainFrame, importedSharedTexture: imported }, generation)
-              .then(() => {
+            await sharedTexture.sendSharedTexture({ frame: target.mainFrame, importedSharedTexture: imported }, generation);
                 if (stopped || generation !== this.generation) return;
                 if (!active) {
                   active = true; clearTimeout(timeout); this.cancelStart = undefined;
@@ -92,11 +91,30 @@ export class PortableNativeCapture {
                 }
                 ++frames; const now = performance.now();
                 if (now - lastStats >= 1000) {
-                  this.status.fps = frames * 1000 / (now - lastStats); this.status.dropped = packet.dropped;
+                  this.status.fps = frames * 1000 / (now - lastStats); this.status.dropped = packet.dropped + skipped;
                   frames = 0; lastStats = now;
                 }
-              }).catch(fail).finally(() => imported.release());
-          } catch (error) { if (!transferred) addon.release(packet.token); fail(error); }
+          } catch (error) { if (!imported) addon.release(packet.token); fail(error); }
+          finally {
+            imported?.release(); sending = false;
+            const next = pending; pending = undefined;
+            if (next) {
+              if (stopped || generation !== this.generation || target.isDestroyed()) addon.release(next.token);
+              else void deliver(next);
+            }
+          }
+      };
+      try {
+        addon.start(options, packet => {
+          if (packet.error) { fail(packet.error); return; }
+          if (stopped || generation !== this.generation || target.isDestroyed()) { addon.release(packet.token); return; }
+          lastFrame = performance.now();
+          // Never accumulate IPC sends behind a busy GPU/renderer. Retain only
+          // the newest waiting frame; imported textures keep their GPU leases.
+          if (sending) {
+            if (pending) { addon.release(pending.token); ++skipped; }
+            pending = packet;
+          } else void deliver(packet);
         });
       } catch (error) { fail(error); }
     });

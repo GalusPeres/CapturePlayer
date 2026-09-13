@@ -1,3 +1,4 @@
+param([switch]$HelpersOnly)
 $ErrorActionPreference = 'Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'The neural preview requires Windows.' }
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -36,6 +37,11 @@ $commandFile = Join-Path $buildRoot 'compile.cmd'
 Set-Content -LiteralPath $commandFile -Value $commands -Encoding ASCII
 & $env:ComSpec /d /c "`"$commandFile`""
 if ($LASTEXITCODE -ne 0) { throw 'Native compilation failed.' }
+& (Join-Path $PSScriptRoot 'stage-windows-redist.ps1') -Destination $runtimeRoot
+if ($HelpersOnly) {
+    Write-Output "Neural helpers built without downloading the NVIDIA runtime: $runtimeRoot"
+    exit 0
+}
 
 # This is an explicitly installed, local experimental runtime. It is never
 # copied into a normal release or committed. See docs/DLSS5-EXPERIMENT.md.

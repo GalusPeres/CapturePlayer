@@ -39,4 +39,11 @@ module.exports = async ({ electronPlatformName, appOutDir, packager, arch }) => 
     } finally { fs.closeSync(descriptor); }
   }
   console.log('Verified native Windows capture helper and app-local C++ runtime.');
+  for (const name of ['CapturePlayerNeural.exe', 'nvngx.dll_ns-forwarder.dll', 'NeuralScreen-LICENSE.txt', ...required.slice(1)]) {
+    const file = path.join(appOutDir, 'neural-runtime', name);
+    if (!fs.existsSync(file) || fs.statSync(file).size < 100) throw new Error(`Missing packaged Neural helper/dependency: ${name}`);
+  }
+  if (packager.appInfo.productFilename !== 'CapturePlayer Neural Test' && fs.existsSync(path.join(appOutDir, 'neural-runtime', 'nvngx_dlssnr.dll')))
+    throw new Error('The NVIDIA model DLL must not be bundled in the public package.');
+  console.log('Verified Neural helpers and manual-runtime package separation.');
 };

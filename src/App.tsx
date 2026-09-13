@@ -18,6 +18,7 @@ declare global {
       getNativeCaptureCapabilities?: (options: { device: string; width: number; height: number; fps: number; hdr: boolean }) => Promise<{ hdrInputPossible: boolean; reason: string }>;
       getNativeCaptureStatus?: () => Promise<{ phase: string; message: string; available: boolean; fps?: number; dropped?: number; hdr?: boolean }>;
       getNeuralStatus?: () => Promise<NeuralStatus>;
+      importNeuralRuntime?: () => Promise<{ cancelled?: boolean; error?: string; version?: string; status?: NeuralStatus }>;
       startNeural?: (quality: NeuralQuality, split: boolean, strength?: number) => Promise<NeuralStatus>;
       stopNeural?: () => Promise<NeuralStatus>;
       pauseNeuralForCapture?: () => Promise<void>;

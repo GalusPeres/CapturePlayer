@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import NativeVideo from './NativeVideo';
 import NativeDiagnosticsOverlay from './NativeDiagnosticsOverlay';
+import DiagnosticsOverlay from './DiagnosticsOverlay';
 import { getCompatibilityTrack } from '../hooks/nativeVideoStream';
 import { useSettings } from '../context/SettingsContext';
 import LowLatencyVideo, { isLowLatencySupported } from './LowLatencyVideo';
@@ -209,11 +210,11 @@ const VideoCanvas: React.FC<Props> = ({
     };
   }, [setResolution, stream, useGlRenderer, settings.nativeRenderer]);
 
-  // Dev-only video timing overlay to diagnose frame pacing and stalls.
+  // Optional video timing overlay to diagnose frame pacing and stalls.
   // Only used on the <video> fallback path - the WebGL path reports via callback.
   useEffect(() => {
     const video = videoRef.current;
-    if (useGlRenderer || !video || !stream || !isDev) {
+    if (useGlRenderer || !video || !stream || !settings.showDiagnosticsOverlay) {
       if (!useGlRenderer) setDebugInfo(null);
       return undefined;
     }
@@ -266,7 +267,7 @@ const VideoCanvas: React.FC<Props> = ({
 
       setDebugInfo(nextStats);
 
-      const shouldLog = settings.showDiagnosticsOverlay && (stalled || performance.now() - lastLoggedAt >= 2000);
+      const shouldLog = isDev && settings.showDiagnosticsOverlay && (stalled || performance.now() - lastLoggedAt >= 2000);
       if (shouldLog) {
         window.electronAPI.debugFrameStats?.({
           ...nextStats,
@@ -292,12 +293,7 @@ const VideoCanvas: React.FC<Props> = ({
         lastFrameMs = now - lastFrameNow;
         maxFrameMs = Math.max(maxFrameMs, lastFrameMs);
 
-        const expectedFrameMs =
-          metadata.presentedFrames > 1 && metadata.mediaTime > 0
-            ? 1000 / Math.max(1, Math.round(metadata.presentedFrames / metadata.mediaTime))
-            : 16.7;
-
-        if (lastFrameMs > Math.max(50, expectedFrameMs * 2.5)) {
+        if (lastFrameMs > 50) {
           stallCount += 1;
         }
       }
@@ -479,7 +475,8 @@ const VideoCanvas: React.FC<Props> = ({
             stream={stream}
             zoomLevel={zoomLevel}
             filters={glFilters}
-            diagnosticsEnabled={isDev && settings.showDiagnosticsOverlay && running}
+            diagnosticsEnabled={settings.showDiagnosticsOverlay && running}
+            onDebugInfo={setDebugInfo}
             onResolution={setResolution}
             onFallback={handleGlFallback}
           />
@@ -494,43 +491,12 @@ const VideoCanvas: React.FC<Props> = ({
           />
         )}
 
-        {isDev && settings.showDiagnosticsOverlay && running && settings.nativeRenderer && stream && (
+        {settings.showDiagnosticsOverlay && running && settings.nativeRenderer && stream && (
           <NativeDiagnosticsOverlay hdr={nativeHdr} compatibility={!!getCompatibilityTrack(stream)} />
         )}
 
-        {isDev && settings.showDiagnosticsOverlay && running && !settings.nativeRenderer && !useGlRenderer && debugInfo && (
-          <div
-            className="
-              absolute top-4 left-4 z-40
-              px-3 py-2 rounded-md
-              bg-black/70 border border-white/10
-              text-white/90 text-xs font-mono leading-relaxed
-              pointer-events-none
-            "
-          >
-            <div>
-              {debugInfo.width}x{debugInfo.height}
-              {debugInfo.trackFps ? ` @${debugInfo.trackFps} src` : ''}
-            </div>
-            <div>renderer: video element</div>
-            <div>display: {debugInfo.displayFps.toFixed(1)} fps</div>
-            <div>frame: {debugInfo.lastFrameMs.toFixed(1)} ms</div>
-            <div>max gap: {debugInfo.maxFrameMs.toFixed(1)} ms</div>
-            {typeof debugInfo.captureDelayMs === 'number' && (
-              <div>
-                {debugInfo.captureDelayKind === 'queue' ? 'queue' : 'delay'}: {debugInfo.captureDelayMs.toFixed(1)} ms
-              </div>
-            )}
-            {typeof debugInfo.maxCaptureDelayMs === 'number' && (
-              <div>
-                max {debugInfo.captureDelayKind === 'queue' ? 'queue' : 'delay'}:{' '}
-                {debugInfo.maxCaptureDelayMs.toFixed(1)} ms
-              </div>
-            )}
-            <div>idle: {debugInfo.idleMs.toFixed(1)} ms</div>
-            <div>stalls: {debugInfo.stallCount}</div>
-            <div>state: {debugInfo.stalled ? 'stalled' : 'ok'}</div>
-          </div>
+        {settings.showDiagnosticsOverlay && running && !settings.nativeRenderer && (
+          <DiagnosticsOverlay key={useGlRenderer ? 'webgl' : 'standard'} mode={useGlRenderer ? 'webgl' : 'standard'} stats={debugInfo} />
         )}
 
         {/* Info overlay when not running or no video device while live - but not during processing or initializing */}

@@ -198,32 +198,7 @@ const LowLatencyVideo: React.FC<Props> = ({
         desynchronized: pipeline.desynchronized
       };
 
-      onDebugInfoRef.current?.(stats);
-      pipeline.setDiagnostics(
-        diagnosticsEnabledRef.current
-          ? [
-              `${stats.width}x${stats.height}${stats.trackFps ? ` @${stats.trackFps} src` : ''}`,
-              'renderer: webgl',
-              `present: ${stats.desynchronized ? 'direct (desync)' : 'compositor'}`,
-              `display: ${stats.displayFps.toFixed(1)} fps`,
-              `frame: ${stats.lastFrameMs.toFixed(1)} ms`,
-              `max gap: ${stats.maxFrameMs.toFixed(1)} ms`,
-              ...(typeof stats.captureDelayMs === 'number'
-                ? [`${stats.captureDelayKind === 'queue' ? 'queue' : 'delay'}: ${stats.captureDelayMs.toFixed(1)} ms`]
-                : []),
-              ...(typeof stats.maxCaptureDelayMs === 'number'
-                ? [
-                    `max ${stats.captureDelayKind === 'queue' ? 'queue' : 'delay'}: ${stats.maxCaptureDelayMs.toFixed(
-                      1
-                    )} ms`
-                  ]
-                : []),
-              `idle: ${stats.idleMs.toFixed(1)} ms`,
-              `stalls: ${stats.stallCount}`,
-              `state: ${stats.stalled ? 'stalled' : 'ok'}`
-            ]
-          : null
-      );
+      if (diagnosticsEnabledRef.current) onDebugInfoRef.current?.(stats);
 
       windowStart = performance.now();
       frameCount = 0;
@@ -246,7 +221,7 @@ const LowLatencyVideo: React.FC<Props> = ({
           if (lastFrameNow !== 0) {
             lastFrameMs = now - lastFrameNow;
             maxFrameMs = Math.max(maxFrameMs, lastFrameMs);
-            if (lastFrameMs > Math.max(50, expectedFrameMs() * 2.5)) {
+            if (lastFrameMs > 50) {
               stallCount += 1;
             }
           }
@@ -264,6 +239,7 @@ const LowLatencyVideo: React.FC<Props> = ({
 
           width = frame.displayWidth;
           height = frame.displayHeight;
+          if (canvas.dataset.frameFormat !== (frame.format || 'unknown')) canvas.dataset.frameFormat = frame.format || 'unknown';
 
           if (!pipeline) {
             // Measurements favored Chromium's source-sized fast path when no
@@ -291,13 +267,8 @@ const LowLatencyVideo: React.FC<Props> = ({
             captureDelayKind = 'absolute';
           } else if (timestampMs !== undefined) {
             const offset = now - timestampMs;
-            if (Math.abs(offset) < 10000) {
-              // Timestamp shares the page clock - treat as a real capture time.
-              captureDelayMs = offset;
-              captureDelayKind = 'absolute';
-            } else {
-              // Unknown epoch: report queueing delay relative to the fastest
-              // delivery observed in the last ~10s instead.
+              // A numerically similar timestamp does not establish a shared
+              // clock. Only explicit captureTime metadata permits absolute age.
               if (now - minOffsetWindowStart >= 5000) {
                 minOffsetPrevious = minOffsetCurrent;
                 minOffsetCurrent = Infinity;
@@ -306,7 +277,6 @@ const LowLatencyVideo: React.FC<Props> = ({
               minOffsetCurrent = Math.min(minOffsetCurrent, offset);
               captureDelayMs = offset - Math.min(minOffsetCurrent, minOffsetPrevious);
               captureDelayKind = 'queue';
-            }
           } else {
             captureDelayMs = undefined;
             captureDelayKind = undefined;
@@ -343,7 +313,7 @@ const LowLatencyVideo: React.FC<Props> = ({
   }, [stream, fsrEnabled, targetWidth, targetHeight]);
 
   return <div ref={hostRef} className="w-full h-full">
-    <canvas key={`${fsrEnabled}-${targetWidth}x${targetHeight}`} ref={canvasRef} className="block w-full h-full object-contain" />
+    <canvas key={`${fsrEnabled}-${targetWidth}x${targetHeight}`} ref={canvasRef} data-low-latency-renderer className="block w-full h-full object-contain" />
   </div>;
 };
 

@@ -36,13 +36,17 @@ export class NeuralWorker {
   private lastLog = '';
   private status: NeuralStatus;
 
-  constructor(private runtimeDir: string) {
+  constructor(private runtimeDir: string, private runtimeFile: () => string | undefined = () => path.join(runtimeDir, 'nvngx_dlssnr.dll')) {
     this.status = { phase: 'off', available: this.available(), message: 'Off' };
   }
   available() {
-    return process.platform === 'win32' && ['CapturePlayerNeural.exe', 'nvngx.dll_ns-forwarder.dll', 'nvngx_dlssnr.dll'].every(f => fs.existsSync(path.join(this.runtimeDir, f)));
+    const runtime = this.runtimeFile();
+    return this.helpersAvailable() && !!runtime && fs.existsSync(runtime);
   }
-  getStatus(): NeuralStatus { return { ...this.status, available: this.available(), selectedQuality: this.selectedQuality, strength: this.strength, split: this.split, tuning: { ...this.tuning } }; }
+  private helpersAvailable() {
+    return process.platform === 'win32' && ['CapturePlayerNeural.exe', 'nvngx.dll_ns-forwarder.dll'].every(f => fs.existsSync(path.join(this.runtimeDir, f)));
+  }
+  getStatus(): NeuralStatus { return { ...this.status, available: this.available(), helpersAvailable: this.helpersAvailable(), runtimeInstalled: !!this.runtimeFile(), selectedQuality: this.selectedQuality, strength: this.strength, split: this.split, tuning: { ...this.tuning } }; }
   setTuning(value: NeuralTuning) {
     const next = normalizeNeuralTuning(value);
     if (JSON.stringify(next) !== JSON.stringify(this.tuning)) { this.tuning = next; ++this.tuningVersion; }
@@ -94,7 +98,7 @@ export class NeuralWorker {
     this.stop();
     const generation = this.generation;
     if (!this.available()) {
-      this.status = { phase: 'error', available: false, message: 'Local neural runtime missing. Run npm run neural:setup.' };
+      this.status = { phase: 'error', available: false, message: this.helpersAvailable() ? 'Select the Neural runtime DLL under Effects.' : 'Neural helper is missing from this installation.' };
       return;
     }
     const { width, height } = options;
@@ -113,7 +117,7 @@ export class NeuralWorker {
     this.status = { phase: 'starting', available: true, message: 'Warming up neural rendering…', quality: `${work.width} × ${work.height}`, outputWidth: width, outputHeight: height };
     const child = spawn(path.join(this.runtimeDir, 'CapturePlayerNeural.exe'), ['--video'], {
       cwd: this.runtimeDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, CAPTUREPLAYER_PARENT_PID: String(process.pid), CAPTUREPLAYER_NEURAL_HDR: options.hdr ? '1' : '0', CAPTUREPLAYER_NEURAL_VSYNC: options.vsync === false ? '0' : '1', NS_NR_SMALL: '1', NS_PHASE: '1', NS_PW: '0', NS_SPOUT: '0', NS_ARCH_SPOOF: '1' }
+      env: { ...process.env, NS_NR_DLL: this.runtimeFile(), CAPTUREPLAYER_PARENT_PID: String(process.pid), CAPTUREPLAYER_NEURAL_HDR: options.hdr ? '1' : '0', CAPTUREPLAYER_NEURAL_VSYNC: options.vsync === false ? '0' : '1', NS_NR_SMALL: '1', NS_PHASE: '1', NS_PW: '0', NS_SPOUT: '0', NS_ARCH_SPOOF: '1' }
     });
     this.child = child;
     child.stdin.on('error', () => {}); // handled by the request/exit path

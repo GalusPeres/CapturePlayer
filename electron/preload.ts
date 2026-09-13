@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopNativeCapture: () => ipcRenderer.invoke('native-capture-stop'),
   getNativeCaptureStatus: () => ipcRenderer.invoke('native-capture-status'),
   getNeuralStatus: () => ipcRenderer.invoke('neural-status'),
+  importNeuralRuntime: () => ipcRenderer.invoke('neural-import-runtime'),
   startNeural: (quality: string, split: boolean, strength = 100) => ipcRenderer.invoke('neural-start', quality, split, strength),
   stopNeural: () => ipcRenderer.invoke('neural-stop'),
   pauseNeuralForCapture: () => ipcRenderer.invoke('neural-capture-pause'),

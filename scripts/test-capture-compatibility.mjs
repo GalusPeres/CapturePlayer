@@ -50,12 +50,13 @@ window.check=async()=>{
  await capture.start();await wait(50);
  expect(capture.stream.getVideoTracks().length===1,'Native video-only start lost its video track');
  expect(gumCalls.length===0&&audioContexts===0,'No audio must not request a microphone or open AudioContext');
- const originalTrack=capture.stream.getVideoTracks()[0], initialStarts=starts, initialStops=stops;
+ const originalTrack=capture.stream.getVideoTracks()[0], originalStream=capture.stream, initialStarts=starts, initialStops=stops;
  await capture.changeAudio('audio');await wait(50);
  expect(capture.stream.getAudioTracks().length===1,'Audio could not be attached');
  await capture.changeAudio('');await wait(50);
  expect(capture.stream.getAudioTracks().length===0,'No audio did not release its track');
  expect(capture.stream.getVideoTracks()[0]===originalTrack&&originalTrack.readyState==='live','Audio change replaced/stopped video');
+ expect(capture.stream===originalStream,'Audio change replaced the MediaStream and restarted the browser renderer');
  expect(starts===initialStarts&&stops===initialStops,'Audio change reopened native capture');
  capture.stop();await wait(100);
  nativeFails=true;await capture.start();await wait(600);

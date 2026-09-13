@@ -25,7 +25,6 @@ export function DisplayTab({
   setFullscreenZoom = () => {}
 }: Props = {}) {
   const settings = useSettings();
-  const isDev = import.meta.env.DEV;
 
   // VSync launch flag. Lives in the main process (launch settings), not in
   // localStorage, because it must be applied before the app starts.
@@ -256,10 +255,10 @@ export function DisplayTab({
             </div>
           )}
 
-          {/* Diagnostics overlay (dev only) */}
-          {isDev && (
+          {/* Diagnostics are also available in installed builds. */}
             <div className="flex items-center gap-3">
               <button
+                type="button" role="switch" aria-label="Performance diagnostics" aria-checked={settings.showDiagnosticsOverlay}
                 onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
                 className={`
                   w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
@@ -277,14 +276,13 @@ export function DisplayTab({
                   </svg>
                 )}
               </button>
-              <span
+              <InfoHint info="Shows preview frame delivery, frame gaps, FSR work and audio recovery in all video modes. These software measurements do not measure controller-to-screen latency."><span
                 onClick={() => settings.setShowDiagnosticsOverlay(!settings.showDiagnosticsOverlay)}
                 className="text-sm text-white/90 cursor-pointer select-none"
               >
-                Show diagnostics overlay
-              </span>
+                Performance diagnostics
+              </span></InfoHint>
             </div>
-          )}
 
         </div>
       </div>
