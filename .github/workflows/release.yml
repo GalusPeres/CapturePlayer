@@ -1,8 +1,8 @@
 name: Release Build
 
 # Builds Windows (nsis + portable), Linux (AppImage x64) and macOS (dmg, Apple
-# Silicon) packages. Pushing a v* tag publishes them to a draft GitHub release;
-# manual runs upload the packages as workflow artifacts instead.
+# Silicon) packages. Stable tags use draft releases. Prerelease tags publish
+# only after every platform passes; manual runs can opt into the same path.
 
 on:
   push:
@@ -80,7 +80,7 @@ jobs:
         run: node scripts/test-diagnostics-overlay.mjs
 
       - name: Package and publish to GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-')
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,13 +88,13 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Package without publishing
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') || contains(github.ref, '-') }}
         run: npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Upload artifacts
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') || contains(github.ref, '-') }}
         uses: actions/upload-artifact@v4
         with:
           name: captureplayer-${{ matrix.os }}
@@ -105,7 +105,7 @@ jobs:
           if-no-files-found: error
 
   publish-test-release:
-    if: github.event_name == 'workflow_dispatch' && inputs.test_release
+    if: (github.event_name == 'workflow_dispatch' && inputs.test_release) || (startsWith(github.ref, 'refs/tags/') && contains(github.ref, '-'))
     needs: build
     runs-on: ubuntu-latest
     steps:
