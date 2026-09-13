@@ -14,6 +14,10 @@ function replace(before, after) {
 }
 replace('#include "../src/feed_ipc.h"', '#include "src/feed_ipc.h"');
 replace('#include <vector>', '#include <vector>\n#include <memory>\n#include <cmath>');
+// C++20 WinRT uses standard coroutines. Keep the failure label outside these
+// local initializations so the upstream bridge also compiles in conforming mode.
+replace('    ID3D11DeviceContext4 *ctx4 = nullptr;', '    {\n    ID3D11DeviceContext4 *ctx4 = nullptr;');
+replace('    return StageResult::Ok;\nfail_capture:', '    return StageResult::Ok;\n    }\nfail_capture:');
 replace('static VideoHeader g_video_options = {};', 'static double g_cp_frame_start = 0.0;\nstatic VideoHeader g_video_options = {};');
 replace('struct WgcSession\n{', 'struct WgcSession\n{\n    std::shared_ptr<void> frame_event;');
 // Documented WinRT ABI, usable with the installed 22621 SDK as well as newer

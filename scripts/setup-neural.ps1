@@ -30,7 +30,7 @@ if errorlevel 1 exit /b 1
 cd /d "$nativeRoot"
 cl /nologo /O2 /EHsc /W3 /MD /std:c++17 /Iinclude /LD ns_forwarder.cpp /Fe:"$runtimeRoot\nvngx.dll_ns-forwarder.dll" /link kernel32.lib d3d12.lib
 if errorlevel 1 exit /b 1
-cl /nologo /O2 /EHsc /W3 /MD /std:c++17 /Iinclude CapturePlayerNeural.cpp /Fe:"$runtimeRoot\CapturePlayerNeural.exe" /link lib\Windows_x86_64\x64\nvsdk_ngx_d.lib version.lib kernel32.lib user32.lib gdi32.lib advapi32.lib ole32.lib d3d11.lib d3d12.lib dxgi.lib d3dcompiler.lib WindowsApp.lib dwmapi.lib
+cl /nologo /O2 /EHsc /W3 /MD /std:c++20 /Iinclude CapturePlayerNeural.cpp /Fe:"$runtimeRoot\CapturePlayerNeural.exe" /link lib\Windows_x86_64\x64\nvsdk_ngx_d.lib version.lib kernel32.lib user32.lib gdi32.lib advapi32.lib ole32.lib d3d11.lib d3d12.lib dxgi.lib d3dcompiler.lib WindowsApp.lib dwmapi.lib
 exit /b %errorlevel%
 "@
 $commandFile = Join-Path $buildRoot 'compile.cmd'
