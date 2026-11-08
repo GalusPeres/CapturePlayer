@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +56,4 @@ jobs:
           name: captureplayer-${{ matrix.os }}
           path: |
             dist/*.exe
-            dist/*.AppImage
-            dist/*.dmg
           if-no-files-found: error
