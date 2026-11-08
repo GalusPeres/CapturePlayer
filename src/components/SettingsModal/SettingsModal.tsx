@@ -72,7 +72,7 @@ type Props = {
   onClose(): void;
   running: boolean;
   onToggle(): void;
-  onApplyDevices(videoDev: string, audioDev: string): void;
+  onApplyDevices(videoDev: string, audioDev: string): Promise<boolean>;
   signalInfo?: SignalInfo;
   isFullscreen?: boolean;
   fullscreenZoom?: number;
@@ -193,9 +193,12 @@ export default function SettingsModal({
   }, [tab, visible]);
 
   // Footer Actions
-  const applyDevices = () => {
-    onApplyDevices(localVideo, localAudio);
-    // After applying, the settings will be updated, so local values will sync
+  const applyDevices = async () => {
+    const applied = await onApplyDevices(localVideo, localAudio);
+    if (!applied) {
+      setLocalVideo(activeVideoDevice);
+      setLocalAudio(activeAudioDevice);
+    }
   };
 
   // Compare with currently active devices in stream, not saved settings
