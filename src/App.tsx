@@ -424,6 +424,17 @@ export default function App() {
     [isProcessing, running, settings, start, stop]
   );
 
+  const handleSelectVideoDevice = useCallback(
+    (videoDevice: string) => {
+      if (isProcessing || videoDevice === currentVideoDevice) return;
+
+      settings.setVideoDevice(videoDevice);
+      setCurrentVideoDevice(videoDevice);
+      if (running) void handleApplyDevices(videoDevice, currentAudioDevice);
+    },
+    [currentAudioDevice, currentVideoDevice, handleApplyDevices, isProcessing, running, settings]
+  );
+
   const hideControls = !showSettings && running && (hideCursor || !mouseInside);
   const hideAppCursor = !showSettings && running && hideCursor;
 
@@ -519,6 +530,10 @@ export default function App() {
         visible={!hideControls}
         isFullscreen={isFullscreen}
         canStart={!(currentVideoDevice === '' && currentAudioDevice === '')}
+        selectedVideoDevice={currentVideoDevice}
+        excludedHoverDevices={settings.excludedHoverDevices}
+        onSelectVideoDevice={handleSelectVideoDevice}
+        deviceSelectionDisabled={isProcessing}
       />
 
       <SettingsModal

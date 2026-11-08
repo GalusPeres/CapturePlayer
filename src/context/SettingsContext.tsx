@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 export type Settings = {
   videoDevice: string;
   audioDevice: string;
+  excludedHoverDevices: string[];
   captureResolution: string;
   captureFrameRate: string;
   volume: number;
@@ -49,6 +50,7 @@ export type Settings = {
 
   setVideoDevice(v: string): void;
   setAudioDevice(a: string): void;
+  setExcludedHoverDevices(v: string[]): void;
   setCaptureResolution(v: string): void;
   setCaptureFrameRate(v: string): void;
   setVolume(v: number): void;
@@ -94,6 +96,7 @@ const loadAllSettings = () => {
 const DEFAULT_SETTINGS = {
   videoDevice: '',
   audioDevice: '',
+  excludedHoverDevices: [] as string[],
   captureResolution: 'auto',
   captureFrameRate: 'auto',
   volume: 100,
@@ -124,13 +127,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   // Load all settings at once during initialization
   const [allSettings, setAllSettings] = useState<StoredSettings>(() => {
     const loaded = loadAllSettings() as Partial<StoredSettings>;
-    return { ...DEFAULT_SETTINGS, ...loaded };
+    return {
+      ...DEFAULT_SETTINGS,
+      ...loaded,
+      excludedHoverDevices: Array.isArray(loaded.excludedHoverDevices)
+        ? loaded.excludedHoverDevices.filter((deviceId): deviceId is string => typeof deviceId === 'string')
+        : []
+    };
   });
 
   // Extract individual settings from the main state
   const {
     videoDevice,
     audioDevice,
+    excludedHoverDevices,
     captureResolution,
     captureFrameRate,
     volume,
@@ -183,6 +193,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const setVideoDevice = useMemo(() => createSetter('videoDevice'), [createSetter]);
   const setAudioDevice = useMemo(() => createSetter('audioDevice'), [createSetter]);
+  const setExcludedHoverDevices = useMemo(() => createSetter('excludedHoverDevices'), [createSetter]);
   const setCaptureResolution = useMemo(() => createSetter('captureResolution'), [createSetter]);
   const setCaptureFrameRate = useMemo(() => createSetter('captureFrameRate'), [createSetter]);
   const setVolume = useMemo(() => createSetter('volume'), [createSetter]);
@@ -209,6 +220,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       videoDevice,
       audioDevice,
+      excludedHoverDevices,
       captureResolution,
       captureFrameRate,
       volume,
@@ -232,6 +244,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       lowLatencyRenderer,
       setVideoDevice,
       setAudioDevice,
+      setExcludedHoverDevices,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,
@@ -257,6 +270,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [
       videoDevice,
       audioDevice,
+      excludedHoverDevices,
       captureResolution,
       captureFrameRate,
       volume,
@@ -280,6 +294,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       lowLatencyRenderer,
       setVideoDevice,
       setAudioDevice,
+      setExcludedHoverDevices,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,
