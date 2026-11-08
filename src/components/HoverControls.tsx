@@ -2,8 +2,9 @@
 // Buttons shift dynamically when the Pin button is removed in fullscreen.
 // We compute right offsets in 56px steps from the right edge so spacing stays consistent.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import HudButton from './HudButton';
+import { getUniqueDeviceColors } from '../utils/deviceColors';
 
 import playArrow from '../assets/icons/play.png';
 import stopIcon from '../assets/icons/stop.svg';
@@ -25,6 +26,7 @@ type Props = {
   canStart?: boolean;
   selectedVideoDevice: string;
   excludedHoverDevices: string[];
+  hoverDeviceColors: Record<string, string>;
   onSelectVideoDevice(deviceId: string): void;
   deviceSelectionDisabled?: boolean;
 };
@@ -42,12 +44,11 @@ const HoverControls = React.memo(function HoverControls({
   canStart = true,
   selectedVideoDevice,
   excludedHoverDevices,
+  hoverDeviceColors,
   onSelectVideoDevice,
   deviceSelectionDisabled = false
 }: Props) {
   const [videoDevices, setVideoDevices] = useState<Array<{ deviceId: string; label: string }>>([]);
-  const [deviceMenuOpen, setDeviceMenuOpen] = useState(false);
-  const deviceSelectorRef = useRef<HTMLDivElement>(null);
   const animClass = visible ? 'animate-slide-up-fast' : 'animate-slide-down-fast';
 
   useEffect(() => {
@@ -80,32 +81,11 @@ const HoverControls = React.memo(function HoverControls({
     };
   }, []);
 
-  useEffect(() => {
-    if (!visible || deviceSelectionDisabled) setDeviceMenuOpen(false);
-  }, [deviceSelectionDisabled, visible]);
-
-  useEffect(() => {
-    if (!deviceMenuOpen) return undefined;
-
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!deviceSelectorRef.current?.contains(event.target as Node)) setDeviceMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDeviceMenuOpen(false);
-    };
-
-    window.addEventListener('mousedown', closeOnOutsideClick);
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.removeEventListener('mousedown', closeOnOutsideClick);
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [deviceMenuOpen]);
-
   const availableVideoDevices = videoDevices.filter((device) => !excludedHoverDevices.includes(device.deviceId));
-  const selectedLabel =
-    videoDevices.find((device) => device.deviceId === selectedVideoDevice)?.label ??
-    (selectedVideoDevice ? 'Selected camera' : 'Select capture device');
+  const deviceColors = getUniqueDeviceColors(
+    videoDevices.map((device) => device.deviceId),
+    hoverDeviceColors
+  );
 
   // 56px grid from the right: close=56, then 112, 168, 224, 280, 336, ...
   const STEP = 56;
@@ -135,63 +115,33 @@ const HoverControls = React.memo(function HoverControls({
   return (
     <>
       <div
-        ref={deviceSelectorRef}
-        className={`absolute top-5 left-1/2 z-20 -translate-x-1/2 no-drag transition-all duration-200 ${
+        role="group"
+        aria-label="Capture devices"
+        className={`absolute top-5 left-1/2 z-20 flex max-w-[min(90vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 no-drag transition-all duration-200 ${
           visible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
         }`}
         style={{ pointerEvents: visible ? 'auto' : 'none' }}
       >
-        <button
-          type="button"
-          aria-haspopup="listbox"
-          aria-expanded={deviceMenuOpen}
-          disabled={deviceSelectionDisabled || availableVideoDevices.length === 0}
-          onClick={() => setDeviceMenuOpen((open) => !open)}
-          className="flex max-w-[min(22rem,80vw)] items-center gap-2 rounded-full border border-white/20 bg-zinc-900/90 px-4 py-2 text-sm text-white shadow-[0_8px_24px_rgba(0,0,0,0.75)] transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-          title={selectedLabel}
-        >
-          <svg className="h-4 w-4 shrink-0 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <rect x="3" y="6" width="13" height="12" rx="2" strokeWidth="2" />
-            <path d="m16 10 5-3v10l-5-3" strokeWidth="2" strokeLinejoin="round" />
-          </svg>
-          <span className="truncate">
-            {selectedVideoDevice
-              ? selectedLabel
-              : availableVideoDevices.length
-                ? 'Select capture device'
-                : videoDevices.length
-                  ? 'No devices available'
-                  : 'No capture devices'}
-          </span>
-          <svg className="h-4 w-4 shrink-0 text-white/70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path d="m5 7 5 5 5-5H5z" />
-          </svg>
-        </button>
-        {deviceMenuOpen && (
-          <div
-            role="listbox"
-            aria-label="Capture devices"
-            className="absolute left-1/2 mt-2 max-h-64 w-72 max-w-[80vw] -translate-x-1/2 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 py-1 text-sm shadow-xl"
+        {availableVideoDevices.map((device) => (
+          <button
+            type="button"
+            aria-pressed={device.deviceId === selectedVideoDevice}
+            key={device.deviceId}
+            title={device.label}
+            disabled={deviceSelectionDisabled}
+            onClick={() => onSelectVideoDevice(device.deviceId)}
+            style={{ backgroundColor: deviceColors[device.deviceId] }}
+            className={`max-w-[min(18rem,80vw)] truncate rounded-full border border-white/30 px-4 py-2 text-sm text-white shadow-[0_8px_24px_rgba(0,0,0,0.75)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${
+              device.deviceId === selectedVideoDevice ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50' : ''
+            }`}
           >
-            {availableVideoDevices.map((device) => (
-              <button
-                type="button"
-                role="option"
-                aria-selected={device.deviceId === selectedVideoDevice}
-                key={device.deviceId}
-                title={device.label}
-                onClick={() => {
-                  onSelectVideoDevice(device.deviceId);
-                  setDeviceMenuOpen(false);
-                }}
-                className={`block w-full truncate px-4 py-2 text-left ${
-                  device.deviceId === selectedVideoDevice ? 'bg-blue-600 text-white' : 'text-zinc-200 hover:bg-zinc-700'
-                }`}
-              >
-                {device.label}
-              </button>
-            ))}
-          </div>
+            {device.label}
+          </button>
+        ))}
+        {availableVideoDevices.length === 0 && videoDevices.length === 0 && (
+          <span className="rounded-full border border-white/20 bg-zinc-900/90 px-4 py-2 text-sm text-white/70 shadow-lg">
+            No capture devices
+          </span>
         )}
       </div>
 

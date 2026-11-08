@@ -5,6 +5,7 @@ export type Settings = {
   videoDevice: string;
   audioDevice: string;
   excludedHoverDevices: string[];
+  hoverDeviceColors: Record<string, string>;
   captureResolution: string;
   captureFrameRate: string;
   volume: number;
@@ -51,6 +52,7 @@ export type Settings = {
   setVideoDevice(v: string): void;
   setAudioDevice(a: string): void;
   setExcludedHoverDevices(v: string[]): void;
+  setHoverDeviceColors(v: Record<string, string>): void;
   setCaptureResolution(v: string): void;
   setCaptureFrameRate(v: string): void;
   setVolume(v: number): void;
@@ -97,6 +99,7 @@ const DEFAULT_SETTINGS = {
   videoDevice: '',
   audioDevice: '',
   excludedHoverDevices: [] as string[],
+  hoverDeviceColors: {} as Record<string, string>,
   captureResolution: 'auto',
   captureFrameRate: 'auto',
   volume: 100,
@@ -132,7 +135,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       ...loaded,
       excludedHoverDevices: Array.isArray(loaded.excludedHoverDevices)
         ? loaded.excludedHoverDevices.filter((deviceId): deviceId is string => typeof deviceId === 'string')
-        : []
+        : [],
+      hoverDeviceColors:
+        loaded.hoverDeviceColors &&
+        typeof loaded.hoverDeviceColors === 'object' &&
+        !Array.isArray(loaded.hoverDeviceColors)
+          ? Object.fromEntries(
+              Object.entries(loaded.hoverDeviceColors).filter(
+                ([, color]) => typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)
+              )
+            )
+          : {}
     };
   });
 
@@ -141,6 +154,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     videoDevice,
     audioDevice,
     excludedHoverDevices,
+    hoverDeviceColors,
     captureResolution,
     captureFrameRate,
     volume,
@@ -194,6 +208,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setVideoDevice = useMemo(() => createSetter('videoDevice'), [createSetter]);
   const setAudioDevice = useMemo(() => createSetter('audioDevice'), [createSetter]);
   const setExcludedHoverDevices = useMemo(() => createSetter('excludedHoverDevices'), [createSetter]);
+  const setHoverDeviceColors = useMemo(() => createSetter('hoverDeviceColors'), [createSetter]);
   const setCaptureResolution = useMemo(() => createSetter('captureResolution'), [createSetter]);
   const setCaptureFrameRate = useMemo(() => createSetter('captureFrameRate'), [createSetter]);
   const setVolume = useMemo(() => createSetter('volume'), [createSetter]);
@@ -221,6 +236,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       videoDevice,
       audioDevice,
       excludedHoverDevices,
+      hoverDeviceColors,
       captureResolution,
       captureFrameRate,
       volume,
@@ -245,6 +261,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setVideoDevice,
       setAudioDevice,
       setExcludedHoverDevices,
+      setHoverDeviceColors,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,
@@ -271,6 +288,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       videoDevice,
       audioDevice,
       excludedHoverDevices,
+      hoverDeviceColors,
       captureResolution,
       captureFrameRate,
       volume,
@@ -295,6 +313,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setVideoDevice,
       setAudioDevice,
       setExcludedHoverDevices,
+      setHoverDeviceColors,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,

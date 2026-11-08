@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import { getUniqueDeviceColors } from '../../utils/deviceColors';
 
 type VideoDevice = {
   deviceId: string;
@@ -7,8 +8,12 @@ type VideoDevice = {
 };
 
 export default function ExcludeTab() {
-  const { excludedHoverDevices, setExcludedHoverDevices } = useSettings();
+  const { excludedHoverDevices, setExcludedHoverDevices, hoverDeviceColors, setHoverDeviceColors } = useSettings();
   const [devices, setDevices] = useState<VideoDevice[]>([]);
+  const deviceColors = getUniqueDeviceColors(
+    devices.map((device) => device.deviceId),
+    hoverDeviceColors
+  );
 
   useEffect(() => {
     let active = true;
@@ -47,30 +52,54 @@ export default function ExcludeTab() {
     setExcludedHoverDevices(Array.from(excluded));
   };
 
+  const changeDeviceColor = (deviceId: string, color: string) => {
+    const conflictingDevice = devices.find(
+      (device) => device.deviceId !== deviceId && deviceColors[device.deviceId].toLowerCase() === color.toLowerCase()
+    );
+    const nextColors = { ...hoverDeviceColors, [deviceId]: color };
+
+    if (conflictingDevice) {
+      nextColors[conflictingDevice.deviceId] = deviceColors[deviceId];
+    }
+
+    setHoverDeviceColors(nextColors);
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-white/70">
-        Hide video devices from the top hover menu. This does not change your currently selected device.
+        Choose each device's button color and hide devices from the top hover menu. Hiding a device does not change your
+        current selection.
       </p>
       {devices.length ? (
         devices.map((device) => {
           const excluded = excludedHoverDevices.includes(device.deviceId);
           return (
-            <label
+            <div
               key={device.deviceId}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-700/70 bg-zinc-800/50 px-3 py-2 hover:bg-zinc-800"
+              className="flex items-center gap-3 rounded-lg border border-zinc-700/70 bg-zinc-800/50 px-3 py-2 hover:bg-zinc-800"
             >
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={excluded}
+                  onChange={() => toggleDevice(device.deviceId)}
+                  className="h-4 w-4 accent-blue-500"
+                />
+                <span className="min-w-0 flex-1 truncate text-sm text-white" title={device.label}>
+                  {device.label}
+                </span>
+                <span className="text-xs text-white/50">{excluded ? 'Hidden' : 'Shown'}</span>
+              </label>
               <input
-                type="checkbox"
-                checked={excluded}
-                onChange={() => toggleDevice(device.deviceId)}
-                className="h-4 w-4 accent-blue-500"
+                type="color"
+                aria-label={`Button color for ${device.label}`}
+                title="Choose button color"
+                value={deviceColors[device.deviceId]}
+                onChange={(event) => changeDeviceColor(device.deviceId, event.target.value)}
+                className="h-8 w-9 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
               />
-              <span className="min-w-0 flex-1 truncate text-sm text-white" title={device.label}>
-                {device.label}
-              </span>
-              <span className="text-xs text-white/50">{excluded ? 'Hidden' : 'Shown'}</span>
-            </label>
+            </div>
           );
         })
       ) : (

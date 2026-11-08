@@ -532,6 +532,7 @@ export default function App() {
         canStart={!(currentVideoDevice === '' && currentAudioDevice === '')}
         selectedVideoDevice={currentVideoDevice}
         excludedHoverDevices={settings.excludedHoverDevices}
+        hoverDeviceColors={settings.hoverDeviceColors}
         onSelectVideoDevice={handleSelectVideoDevice}
         deviceSelectionDisabled={isProcessing}
       />
