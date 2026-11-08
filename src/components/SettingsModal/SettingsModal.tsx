@@ -638,7 +638,7 @@ export default function SettingsModal({
               <p>
                 Licensed under <span className="text-white/60">MIT License</span>
               </p>
-              <p>© 2025 GalusPeres. All rights reserved.</p>
+              <p>© 2026 GalusPeres. All rights reserved.</p>
               <div className="flex justify-center space-x-4">
                 <button
                   onClick={() =>
