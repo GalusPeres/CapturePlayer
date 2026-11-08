@@ -6,6 +6,8 @@ export type Settings = {
   audioDevice: string;
   excludedHoverDevices: string[];
   hoverDeviceColors: Record<string, string>;
+  hoverDeviceNames: Record<string, string>;
+  hoverDeviceIcons: Record<string, string>;
   captureResolution: string;
   captureFrameRate: string;
   volume: number;
@@ -53,6 +55,8 @@ export type Settings = {
   setAudioDevice(a: string): void;
   setExcludedHoverDevices(v: string[]): void;
   setHoverDeviceColors(v: Record<string, string>): void;
+  setHoverDeviceNames(v: Record<string, string>): void;
+  setHoverDeviceIcons(v: Record<string, string>): void;
   setCaptureResolution(v: string): void;
   setCaptureFrameRate(v: string): void;
   setVolume(v: number): void;
@@ -100,6 +104,8 @@ const DEFAULT_SETTINGS = {
   audioDevice: '',
   excludedHoverDevices: [] as string[],
   hoverDeviceColors: {} as Record<string, string>,
+  hoverDeviceNames: {} as Record<string, string>,
+  hoverDeviceIcons: {} as Record<string, string>,
   captureResolution: 'auto',
   captureFrameRate: 'auto',
   volume: 100,
@@ -145,6 +151,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 ([, color]) => typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)
               )
             )
+          : {},
+      hoverDeviceNames:
+        loaded.hoverDeviceNames &&
+        typeof loaded.hoverDeviceNames === 'object' &&
+        !Array.isArray(loaded.hoverDeviceNames)
+          ? Object.fromEntries(Object.entries(loaded.hoverDeviceNames).filter(([, name]) => typeof name === 'string'))
+          : {},
+      hoverDeviceIcons:
+        loaded.hoverDeviceIcons &&
+        typeof loaded.hoverDeviceIcons === 'object' &&
+        !Array.isArray(loaded.hoverDeviceIcons)
+          ? Object.fromEntries(Object.entries(loaded.hoverDeviceIcons).filter(([, icon]) => typeof icon === 'string'))
           : {}
     };
   });
@@ -155,6 +173,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     audioDevice,
     excludedHoverDevices,
     hoverDeviceColors,
+    hoverDeviceNames,
+    hoverDeviceIcons,
     captureResolution,
     captureFrameRate,
     volume,
@@ -209,6 +229,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setAudioDevice = useMemo(() => createSetter('audioDevice'), [createSetter]);
   const setExcludedHoverDevices = useMemo(() => createSetter('excludedHoverDevices'), [createSetter]);
   const setHoverDeviceColors = useMemo(() => createSetter('hoverDeviceColors'), [createSetter]);
+  const setHoverDeviceNames = useMemo(() => createSetter('hoverDeviceNames'), [createSetter]);
+  const setHoverDeviceIcons = useMemo(() => createSetter('hoverDeviceIcons'), [createSetter]);
   const setCaptureResolution = useMemo(() => createSetter('captureResolution'), [createSetter]);
   const setCaptureFrameRate = useMemo(() => createSetter('captureFrameRate'), [createSetter]);
   const setVolume = useMemo(() => createSetter('volume'), [createSetter]);
@@ -237,6 +259,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       audioDevice,
       excludedHoverDevices,
       hoverDeviceColors,
+      hoverDeviceNames,
+      hoverDeviceIcons,
       captureResolution,
       captureFrameRate,
       volume,
@@ -262,6 +286,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setAudioDevice,
       setExcludedHoverDevices,
       setHoverDeviceColors,
+      setHoverDeviceNames,
+      setHoverDeviceIcons,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,
@@ -289,6 +315,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       audioDevice,
       excludedHoverDevices,
       hoverDeviceColors,
+      hoverDeviceNames,
+      hoverDeviceIcons,
       captureResolution,
       captureFrameRate,
       volume,
@@ -314,6 +342,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setAudioDevice,
       setExcludedHoverDevices,
       setHoverDeviceColors,
+      setHoverDeviceNames,
+      setHoverDeviceIcons,
       setCaptureResolution,
       setCaptureFrameRate,
       setVolume,

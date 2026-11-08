@@ -540,6 +540,8 @@ export default function App() {
         selectedVideoDevice={currentVideoDevice}
         excludedHoverDevices={settings.excludedHoverDevices}
         hoverDeviceColors={settings.hoverDeviceColors}
+        hoverDeviceNames={settings.hoverDeviceNames}
+        hoverDeviceIcons={settings.hoverDeviceIcons}
         onSelectVideoDevice={handleSelectVideoDevice}
         deviceSelectionDisabled={isProcessing}
       />

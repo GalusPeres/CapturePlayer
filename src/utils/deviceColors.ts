@@ -1,5 +1,21 @@
 const toHex = (value: number) => Math.round(value).toString(16).padStart(2, '0');
 
+export const DEVICE_ICON_OPTIONS = [
+  { value: 'camera', icon: '📷', label: 'Camera' },
+  { value: 'video', icon: '🎥', label: 'Video' },
+  { value: 'display', icon: '🖥️', label: 'Display' },
+  { value: 'game', icon: '🎮', label: 'Game' }
+] as const;
+
+export function getDeviceColorGradient(color: string): string {
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const darkerColor = `#${toHex(red * 0.62)}${toHex(green * 0.62)}${toHex(blue * 0.62)}`;
+
+  return `linear-gradient(135deg, ${color}, ${darkerColor})`;
+}
+
 export function getDefaultDeviceColor(index: number): string {
   const hue = (index * 137.508) % 360;
   const saturation = 0.78;

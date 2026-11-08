@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
-import { getUniqueDeviceColors } from '../../utils/deviceColors';
+import { DEVICE_ICON_OPTIONS, getUniqueDeviceColors } from '../../utils/deviceColors';
 
 type VideoDevice = {
   deviceId: string;
@@ -8,7 +8,16 @@ type VideoDevice = {
 };
 
 export default function ExcludeTab() {
-  const { excludedHoverDevices, setExcludedHoverDevices, hoverDeviceColors, setHoverDeviceColors } = useSettings();
+  const {
+    excludedHoverDevices,
+    setExcludedHoverDevices,
+    hoverDeviceColors,
+    setHoverDeviceColors,
+    hoverDeviceNames,
+    setHoverDeviceNames,
+    hoverDeviceIcons,
+    setHoverDeviceIcons
+  } = useSettings();
   const [devices, setDevices] = useState<VideoDevice[]>([]);
   const deviceColors = getUniqueDeviceColors(
     devices.map((device) => device.deviceId),
@@ -68,37 +77,60 @@ export default function ExcludeTab() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-white/70">
-        Choose each device's button color and hide devices from the top hover menu. Hiding a device does not change your
-        current selection.
+        Manage device names, icons, button colors, and visibility in the hover menu.
       </p>
       {devices.length ? (
         devices.map((device) => {
           const excluded = excludedHoverDevices.includes(device.deviceId);
+          const icon = hoverDeviceIcons[device.deviceId] ?? 'camera';
           return (
             <div
               key={device.deviceId}
-              className="flex items-center gap-3 rounded-lg border border-zinc-700/70 bg-zinc-800/50 px-3 py-2 hover:bg-zinc-800"
+              className="space-y-2 rounded-lg border border-zinc-700/70 bg-zinc-800/50 px-3 py-2 hover:bg-zinc-800"
             >
-              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+              <div className="flex items-center gap-2">
+                <select
+                  aria-label={`Icon for ${device.label}`}
+                  value={icon}
+                  onChange={(event) =>
+                    setHoverDeviceIcons({ ...hoverDeviceIcons, [device.deviceId]: event.target.value })
+                  }
+                  className="h-9 w-12 shrink-0 rounded border border-white/20 bg-zinc-900 px-1 text-center text-base text-white"
+                >
+                  {DEVICE_ICON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.icon} {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  aria-label={`Display name for ${device.label}`}
+                  placeholder={device.label}
+                  value={hoverDeviceNames[device.deviceId] ?? ''}
+                  onChange={(event) =>
+                    setHoverDeviceNames({ ...hoverDeviceNames, [device.deviceId]: event.target.value })
+                  }
+                  className="h-9 min-w-0 flex-1 rounded border border-white/20 bg-zinc-900 px-2 text-sm text-white placeholder:text-white/40"
+                />
+                <input
+                  type="color"
+                  aria-label={`Button color for ${device.label}`}
+                  title="Choose button color"
+                  value={deviceColors[device.deviceId]}
+                  onChange={(event) => changeDeviceColor(device.deviceId, event.target.value)}
+                  className="h-8 w-9 shrink-0 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+                />
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-white/70">
                 <input
                   type="checkbox"
-                  checked={excluded}
+                  checked={!excluded}
                   onChange={() => toggleDevice(device.deviceId)}
                   className="h-4 w-4 accent-blue-500"
                 />
-                <span className="min-w-0 flex-1 truncate text-sm text-white" title={device.label}>
-                  {device.label}
-                </span>
-                <span className="text-xs text-white/50">{excluded ? 'Hidden' : 'Shown'}</span>
+                Show in hover menu
               </label>
-              <input
-                type="color"
-                aria-label={`Button color for ${device.label}`}
-                title="Choose button color"
-                value={deviceColors[device.deviceId]}
-                onChange={(event) => changeDeviceColor(device.deviceId, event.target.value)}
-                className="h-8 w-9 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
-              />
             </div>
           );
         })

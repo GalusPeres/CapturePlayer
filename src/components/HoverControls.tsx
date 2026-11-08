@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import HudButton from './HudButton';
-import { getUniqueDeviceColors } from '../utils/deviceColors';
+import { DEVICE_ICON_OPTIONS, getDeviceColorGradient, getUniqueDeviceColors } from '../utils/deviceColors';
 
 import playArrow from '../assets/icons/play.png';
 import stopIcon from '../assets/icons/stop.svg';
@@ -27,6 +27,8 @@ type Props = {
   selectedVideoDevice: string;
   excludedHoverDevices: string[];
   hoverDeviceColors: Record<string, string>;
+  hoverDeviceNames: Record<string, string>;
+  hoverDeviceIcons: Record<string, string>;
   onSelectVideoDevice(deviceId: string): void;
   deviceSelectionDisabled?: boolean;
 };
@@ -45,6 +47,8 @@ const HoverControls = React.memo(function HoverControls({
   selectedVideoDevice,
   excludedHoverDevices,
   hoverDeviceColors,
+  hoverDeviceNames,
+  hoverDeviceIcons,
   onSelectVideoDevice,
   deviceSelectionDisabled = false
 }: Props) {
@@ -122,22 +126,27 @@ const HoverControls = React.memo(function HoverControls({
         }`}
         style={{ pointerEvents: visible ? 'auto' : 'none' }}
       >
-        {availableVideoDevices.map((device) => (
-          <button
-            type="button"
-            aria-pressed={device.deviceId === selectedVideoDevice}
-            key={device.deviceId}
-            title={device.label}
-            disabled={deviceSelectionDisabled}
-            onClick={() => onSelectVideoDevice(device.deviceId)}
-            style={{ backgroundColor: deviceColors[device.deviceId] }}
-            className={`max-w-[min(18rem,80vw)] truncate rounded-full border border-white/30 px-4 py-2 text-sm text-white shadow-[0_8px_24px_rgba(0,0,0,0.75)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${
-              device.deviceId === selectedVideoDevice ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50' : ''
-            }`}
-          >
-            {device.label}
-          </button>
-        ))}
+        {availableVideoDevices.map((device) => {
+          const icon = DEVICE_ICON_OPTIONS.find((option) => option.value === hoverDeviceIcons[device.deviceId]);
+          const label = hoverDeviceNames[device.deviceId]?.trim() || device.label;
+
+          return (
+            <button
+              type="button"
+              aria-pressed={device.deviceId === selectedVideoDevice}
+              key={device.deviceId}
+              title={label}
+              disabled={deviceSelectionDisabled}
+              onClick={() => onSelectVideoDevice(device.deviceId)}
+              style={{ backgroundImage: getDeviceColorGradient(deviceColors[device.deviceId]) }}
+              className={`max-w-[min(18rem,80vw)] truncate rounded-full border border-white/30 px-4 py-2 text-sm text-white shadow-[0_8px_24px_rgba(0,0,0,0.75)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${
+                device.deviceId === selectedVideoDevice ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50' : ''
+              }`}
+            >
+              {icon?.icon ?? DEVICE_ICON_OPTIONS[0].icon} {label}
+            </button>
+          );
+        })}
         {availableVideoDevices.length === 0 && videoDevices.length === 0 && (
           <span className="rounded-full border border-white/20 bg-zinc-900/90 px-4 py-2 text-sm text-white/70 shadow-lg">
             No capture devices

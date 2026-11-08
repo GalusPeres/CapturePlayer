@@ -451,7 +451,7 @@ export default function SettingsModal({
                   : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40'
               } focus:outline-none transition-colors rounded-t-lg`}
             >
-              Exclude
+              Manager
             </button>
             <button
               ref={advRef}
