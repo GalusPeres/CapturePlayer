@@ -2,6 +2,7 @@
 import React, { useState, useRef, KeyboardEvent, useEffect, useCallback, useLayoutEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import BasicTab from './DevicesTab';
+import ExcludeTab from './ExcludeTab';
 import DisplayTab, { useViewTabActions } from './ViewTab';
 import ColorTab, { useColorTabActions } from './ColorTab';
 import AboutTab from './AboutTab';
@@ -11,7 +12,7 @@ import stopIcon from '../../assets/icons/stop.svg';
 type SignalInfo = { w: number; h: number; fps?: number } | null;
 type Position = { x: number; y: number };
 type RelativePosition = { x: number; y: number };
-type SettingsTab = 'devices' | 'view' | 'color' | 'about';
+type SettingsTab = 'devices' | 'exclude' | 'view' | 'color' | 'about';
 type TabScrollPositions = Record<SettingsTab, number>;
 
 const MODAL_WIDTH = 384; // w-96
@@ -26,6 +27,7 @@ const POSITION_STORAGE_KEY = 'capturePlayerSettingsPosition';
 const SCROLL_STORAGE_KEY = 'capturePlayerSettingsScrollPositions';
 const DEFAULT_SCROLL_POSITIONS: TabScrollPositions = {
   devices: 0,
+  exclude: 0,
   view: 0,
   color: 0,
   about: 0
@@ -70,7 +72,7 @@ type Props = {
   onClose(): void;
   running: boolean;
   onToggle(): void;
-  onApplyDevices(videoDev: string, audioDev: string): void;
+  onApplyDevices(videoDev: string, audioDev: string): Promise<boolean>;
   signalInfo?: SignalInfo;
   isFullscreen?: boolean;
   fullscreenZoom?: number;
@@ -157,14 +159,16 @@ export default function SettingsModal({
   const onTabKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      if (tab === 'devices') changeTab('view');
+      if (tab === 'devices') changeTab('exclude');
+      else if (tab === 'exclude') changeTab('view');
       else if (tab === 'view') changeTab('color');
       else if (tab === 'color') changeTab('about');
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       if (tab === 'about') changeTab('color');
       else if (tab === 'color') changeTab('view');
-      else if (tab === 'view') changeTab('devices');
+      else if (tab === 'view') changeTab('exclude');
+      else if (tab === 'exclude') changeTab('devices');
     }
   };
 
@@ -189,9 +193,12 @@ export default function SettingsModal({
   }, [tab, visible]);
 
   // Footer Actions
-  const applyDevices = () => {
-    onApplyDevices(localVideo, localAudio);
-    // After applying, the settings will be updated, so local values will sync
+  const applyDevices = async () => {
+    const applied = await onApplyDevices(localVideo, localAudio);
+    if (!applied) {
+      setLocalVideo(activeVideoDevice);
+      setLocalAudio(activeAudioDevice);
+    }
   };
 
   // Compare with currently active devices in stream, not saved settings
@@ -435,6 +442,18 @@ export default function SettingsModal({
               Devices
             </button>
             <button
+              role="tab"
+              aria-selected={tab === 'exclude'}
+              onClick={() => changeTab('exclude')}
+              className={`flex-1 py-2 text-center border border-transparent ${
+                tab === 'exclude'
+                  ? 'text-white relative z-10 bg-zinc-900 border-t-zinc-600/40 border-r-zinc-600/40 border-l-zinc-600/40'
+                  : 'text-white/60 hover:text-white hover:bg-zinc-700 border-b-zinc-600/40'
+              } focus:outline-none transition-colors rounded-t-lg`}
+            >
+              Manager
+            </button>
+            <button
               ref={advRef}
               role="tab"
               aria-selected={tab === 'view'}
@@ -493,6 +512,8 @@ export default function SettingsModal({
               signalInfo={signalInfo}
               running={running}
             />
+          ) : tab === 'exclude' ? (
+            <ExcludeTab />
           ) : tab === 'view' ? (
             <DisplayTab
               signalInfo={signalInfo}
@@ -502,9 +523,9 @@ export default function SettingsModal({
             />
           ) : tab === 'color' ? (
             <ColorTab />
-          ) : (
+          ) : tab === 'about' ? (
             <AboutTab />
-          )}
+          ) : null}
         </div>
 
         {/* Footer - Always Visible */}
@@ -536,7 +557,7 @@ export default function SettingsModal({
                 {running ? 'Stop' : 'Start'}
               </button>
             </>
-          ) : tab === 'view' ? (
+          ) : tab === 'exclude' ? null : tab === 'view' ? (
             <div className="flex gap-2">
               {viewActions.canCreateCustom && (
                 <button
@@ -612,12 +633,12 @@ export default function SettingsModal({
                 </button>
               )
             )
-          ) : (
+          ) : tab === 'about' ? (
             <div className="text-center text-white/40 text-xs space-y-2">
               <p>
                 Licensed under <span className="text-white/60">MIT License</span>
               </p>
-              <p>© 2025 GalusPeres. All rights reserved.</p>
+              <p>© 2026 GalusPeres. All rights reserved.</p>
               <div className="flex justify-center space-x-4">
                 <button
                   onClick={() =>
@@ -639,7 +660,7 @@ export default function SettingsModal({
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

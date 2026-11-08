@@ -371,9 +371,11 @@ export default function App() {
 
       if (isProcessing) {
         console.log('⏳ Stream operation in progress, skipping device change...');
-        return;
+        return false;
       }
 
+      const previousVideoDev = activeVideoDevice;
+      const previousAudioDev = activeAudioDevice;
       setProcessingWithTimeout(true);
 
       try {
@@ -386,19 +388,16 @@ export default function App() {
           });
         }
 
-        console.log('💾 Updating settings...');
-
-        settings.setVideoDevice(videoDev);
-        settings.setAudioDevice(audioDev);
-
-        // Note: Autostart stays enabled even if devices change
-
         await new Promise<void>((resolve) => {
           setTimeout(resolve, 100);
         });
 
         console.log('▶️ Starting capture with new devices...');
         await start({ videoDevice: videoDev, audioDevice: audioDev });
+        settings.setVideoDevice(videoDev);
+        settings.setAudioDevice(audioDev);
+        setCurrentVideoDevice(videoDev);
+        setCurrentAudioDevice(audioDev);
         setActiveVideoDevice(videoDev);
         setActiveAudioDevice(audioDev);
         setActiveCaptureResolution(settings.captureResolution);
@@ -406,22 +405,41 @@ export default function App() {
         setRunning(true);
 
         console.log('✅ Device switch successful!');
+        return true;
       } catch (error) {
         console.error('❌ Device switch failed:', error);
+        settings.setVideoDevice(previousVideoDev);
+        settings.setAudioDevice(previousAudioDev);
+        setCurrentVideoDevice(previousVideoDev);
+        setCurrentAudioDevice(previousAudioDev);
 
         try {
           console.log('🔄 Attempting fallback to previous devices...');
-          await start();
+          await start({ videoDevice: previousVideoDev, audioDevice: previousAudioDev });
           setRunning(true);
         } catch (fallbackError) {
           console.error('❌ Fallback also failed:', fallbackError);
           setRunning(false);
         }
+        return false;
       } finally {
         setProcessingWithTimeout(false);
       }
     },
-    [isProcessing, running, settings, start, stop]
+    [activeAudioDevice, activeVideoDevice, isProcessing, running, settings, start, stop]
+  );
+
+  const handleSelectVideoDevice = useCallback(
+    (videoDevice: string) => {
+      if (isProcessing || videoDevice === currentVideoDevice) return;
+
+      if (running) void handleApplyDevices(videoDevice, currentAudioDevice);
+      else {
+        settings.setVideoDevice(videoDevice);
+        setCurrentVideoDevice(videoDevice);
+      }
+    },
+    [currentAudioDevice, currentVideoDevice, handleApplyDevices, isProcessing, running, settings]
   );
 
   const hideControls = !showSettings && running && (hideCursor || !mouseInside);
@@ -519,6 +537,13 @@ export default function App() {
         visible={!hideControls}
         isFullscreen={isFullscreen}
         canStart={!(currentVideoDevice === '' && currentAudioDevice === '')}
+        selectedVideoDevice={currentVideoDevice}
+        excludedHoverDevices={settings.excludedHoverDevices}
+        hoverDeviceColors={settings.hoverDeviceColors}
+        hoverDeviceNames={settings.hoverDeviceNames}
+        hoverDeviceIcons={settings.hoverDeviceIcons}
+        onSelectVideoDevice={handleSelectVideoDevice}
+        deviceSelectionDisabled={isProcessing}
       />
 
       <SettingsModal

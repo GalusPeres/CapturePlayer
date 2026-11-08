@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import iconIco from '../../assets/icons/icon.ico';
 
 // App constants - could be imported from package.json later
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.4.1';
 const APP_NAME = 'CapturePlayer';
 const GITHUB_URL = 'https://github.com/GalusPeres/CapturePlayer';
 const COFFEE_URL = 'https://ko-fi.com/galusperes'; // Replace with your Ko-fi/PayPal link
+const GITHUB_UPD = 'https://api.github.com/repos/CHOUAiB/CapturePlayer/releases/latest'
 
 export default function AboutTab() {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
@@ -25,6 +26,7 @@ export default function AboutTab() {
     setIsCheckingUpdates(true);
 
     try {
+      // const response = await fetch('https://api.github.com/repos/GalusPeres/CapturePlayer/releases/latest');
       const response = await fetch('https://api.github.com/repos/GalusPeres/CapturePlayer/releases/latest');
       const data = await response.json();
 
