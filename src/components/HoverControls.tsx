@@ -2,8 +2,9 @@
 // Buttons shift dynamically when the Pin button is removed in fullscreen.
 // We compute right offsets in 56px steps from the right edge so spacing stays consistent.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import HudButton from './HudButton';
+import { DEVICE_ICON_OPTIONS, getDeviceColorGradient, getUniqueDeviceColors } from '../utils/deviceColors';
 
 import playArrow from '../assets/icons/play.png';
 import stopIcon from '../assets/icons/stop.svg';
@@ -23,6 +24,13 @@ type Props = {
   visible: boolean;
   isFullscreen: boolean;
   canStart?: boolean;
+  selectedVideoDevice: string;
+  excludedHoverDevices: string[];
+  hoverDeviceColors: Record<string, string>;
+  hoverDeviceNames: Record<string, string>;
+  hoverDeviceIcons: Record<string, string>;
+  onSelectVideoDevice(deviceId: string): void;
+  deviceSelectionDisabled?: boolean;
 };
 
 const HoverControls = React.memo(function HoverControls({
@@ -35,9 +43,53 @@ const HoverControls = React.memo(function HoverControls({
   alwaysOnTop,
   visible,
   isFullscreen,
-  canStart = true
+  canStart = true,
+  selectedVideoDevice,
+  excludedHoverDevices,
+  hoverDeviceColors,
+  hoverDeviceNames,
+  hoverDeviceIcons,
+  onSelectVideoDevice,
+  deviceSelectionDisabled = false
 }: Props) {
+  const [videoDevices, setVideoDevices] = useState<Array<{ deviceId: string; label: string }>>([]);
   const animClass = visible ? 'animate-slide-up-fast' : 'animate-slide-down-fast';
+
+  useEffect(() => {
+    let active = true;
+
+    const updateDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!active) return;
+
+        setVideoDevices(
+          devices
+            .filter((device) => device.kind === 'videoinput' && !/^Default\b/i.test(device.label || ''))
+            .map((device, index) => ({
+              deviceId: device.deviceId,
+              label: device.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim() || `Camera ${index + 1}`
+            }))
+        );
+      } catch (error) {
+        console.error('Failed to enumerate capture devices:', error);
+      }
+    };
+
+    void updateDevices();
+    navigator.mediaDevices.addEventListener('devicechange', updateDevices);
+
+    return () => {
+      active = false;
+      navigator.mediaDevices.removeEventListener('devicechange', updateDevices);
+    };
+  }, []);
+
+  const availableVideoDevices = videoDevices.filter((device) => !excludedHoverDevices.includes(device.deviceId));
+  const deviceColors = getUniqueDeviceColors(
+    videoDevices.map((device) => device.deviceId),
+    hoverDeviceColors
+  );
 
   // 56px grid from the right: close=56, then 112, 168, 224, 280, 336, ...
   const STEP = 56;
@@ -66,6 +118,42 @@ const HoverControls = React.memo(function HoverControls({
 
   return (
     <>
+      <div
+        role="group"
+        aria-label="Capture devices"
+        className={`absolute top-5 left-1/2 z-20 flex max-w-[min(90vw,48rem)] -translate-x-1/2 flex-wrap justify-center gap-2 no-drag transition-all duration-200 ${
+          visible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
+        }`}
+        style={{ pointerEvents: visible ? 'auto' : 'none' }}
+      >
+        {availableVideoDevices.map((device) => {
+          const icon = DEVICE_ICON_OPTIONS.find((option) => option.value === hoverDeviceIcons[device.deviceId]);
+          const label = hoverDeviceNames[device.deviceId]?.trim() || device.label;
+
+          return (
+            <button
+              type="button"
+              aria-pressed={device.deviceId === selectedVideoDevice}
+              key={device.deviceId}
+              title={label}
+              disabled={deviceSelectionDisabled}
+              onClick={() => onSelectVideoDevice(device.deviceId)}
+              style={{ backgroundImage: getDeviceColorGradient(deviceColors[device.deviceId]) }}
+              className={`max-w-[min(18rem,80vw)] truncate rounded-full border border-white/30 px-4 py-2 text-sm text-white shadow-[0_8px_24px_rgba(0,0,0,0.75)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 ${
+                device.deviceId === selectedVideoDevice ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50' : ''
+              }`}
+            >
+              {icon?.icon ?? DEVICE_ICON_OPTIONS[0].icon} {label}
+            </button>
+          );
+        })}
+        {availableVideoDevices.length === 0 && videoDevices.length === 0 && (
+          <span className="rounded-full border border-white/20 bg-zinc-900/90 px-4 py-2 text-sm text-white/70 shadow-lg">
+            No capture devices
+          </span>
+        )}
+      </div>
+
       {/* Live badge follows the same grid */}
       {running && (
         <div
